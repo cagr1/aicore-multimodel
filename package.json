@@ -1,0 +1,21 @@
+{
+  "name": "ai-core",
+  "version": "1.0.0",
+  "description": "Multi-agent orchestration system via MCP",
+  "main": "src/mcp-server/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/mcp-server/index.js",
+    "mcp": "node src/mcp-server/mcp-server.js --mcp",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "orchestration",
+    "mcp"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {}
+}
