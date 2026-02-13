@@ -55,8 +55,32 @@ Kilo (chat) → ai-core (agentes reales) → análisis del proyecto
 - [x] Backup automático
 - [x] Modo dry-run
 
+### Fase 4.1 - Aplicación de Cambios
+- [ ] Integrar File Engine con agentes
+- [ ] Propuestas de cambios estructuradas
+- [ ] Apply con confirmación
+- [ ] Validación de cambios
+
+### Fase 5 - Modelo Opcional
+- [ ] Abstracción de LLM provider
+- [ ] Configurable (OpenAI compatible)
+- [ ] Solo para tareas no deterministas
+- [ ] Sistema funciona sin modelo
+
+### Fase 5.1 - Router Inteligente
+- [ ] Análisis de contexto del prompt
+- [ ] Detectar intención sin keywords
+- [ ] Agente por defecto según proyecto
+- [ ] Fallback determinista
+
+### Fase 6 - Perfilado por Proyecto
+- [ ] Perfil landing
+- [ ] Perfil saas
+- [ ] Perfil api
+- [ ] Activación automática por scanner
+
 ### Agentes Especializados
-- [x] SEO -搜索引擎优化
+- [x] SEO - Optimización para motores de búsqueda
 - [x] Code - Calidad de código
 - [x] Frontend - UI/Componentes
 - [x] Backend - API/Rutas
@@ -65,34 +89,9 @@ Kilo (chat) → ai-core (agentes reales) → análisis del proyecto
 
 ---
 
-## Mejoras Pendientes
+## Próximo Objetivo
 
-### 1. Router Inteligente (Contexto General)
-
-**Problema actual:** Requiere keywords explícitas ("seguridad", "test")
-
-**Solución:** 
-- Analizar contexto del prompt
-- Detectar intención sin keywords específicas
-- Activar agente por defecto según tipo de proyecto
-
-### 2. Integración Real con Kilo
-
-**Problema actual:** Solo CLI, no configurado en Kilo
-
-**Solución:**
-- Configurar endpoint en Kilo
-- MCP Server activo
-- Comunicación bidireccional
-
-### 3. Aplicación de Cambios
-
-**Problema actual:** Agentes solo analizan, no aplican
-
-**Solución:**
-- Integrar File Engine con agentes
--提案 de cambios (no solo diagnostics)
-- Apply automático con confirmación
+**Fase 4.1** - Aplicación de cambios desde agentes
 
 ---
 
@@ -127,13 +126,5 @@ ai-core/
 
 ---
 
-## Siguiente
-
-1. Mejorar router para contexto general
-2. Integrar con Kilo
-3. Aplicar cambios desde agentes
-
----
-
 *Actualizado: 2026-02-13*
-*Estado: Funcional, pulir 3 puntos*
+*Estado: En desarrollo Fase 4.1*
