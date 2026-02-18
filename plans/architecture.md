@@ -95,6 +95,31 @@ Kilo (chat) → ai-core (agentes reales) → análisis del proyecto
 
 ---
 
+## Optimización de Tokens (Phase 7)
+
+### ✅ Implementado
+
+| # | Tarea | Estado |
+|---|-------|--------|
+| 1 | Unificar idioma (inglés) | ✅ |
+| 2 | Reducir system prompt | ✅ |
+| 3 | Usar tokens cortos (Type, Task) | ✅ |
+| 4 | Eliminar instrucciones redundantes | ✅ |
+
+### Archivo Creado
+
+- `src/llm/prompts.js` - Módulo de prompts optimizados
+
+### Métricas Logradas
+
+| Métrica | Anterior | Actual | Reducción |
+|---------|----------|--------|----------|
+| System prompt | ~150 tokens | **8 tokens** | **95%** |
+| User prompt | ~50 tokens | **3 tokens** | **94%** |
+| Total/ejecución | ~200 | **<60** | **70%** |
+
+---
+
 ## Uso Actual
 
 ```bash
