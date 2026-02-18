@@ -56,28 +56,28 @@ Kilo (chat) → ai-core (agentes reales) → análisis del proyecto
 - [x] Modo dry-run
 
 ### Fase 4.1 - Aplicación de Cambios
-- [ ] Integrar File Engine con agentes
-- [ ] Propuestas de cambios estructuradas
-- [ ] Apply con confirmación
-- [ ] Validación de cambios
+- [x] Integrar File Engine con agentes
+- [x] Propuestas de cambios estructuradas
+- [x] Apply con confirmación
+- [x] Validación de cambios
 
 ### Fase 5 - Modelo Opcional
-- [ ] Abstracción de LLM provider
-- [ ] Configurable (OpenAI compatible)
-- [ ] Solo para tareas no deterministas
-- [ ] Sistema funciona sin modelo
+- [x] Abstracción de LLM provider
+- [x] Configurable (OpenAI compatible)
+- [x] Solo para tareas no deterministas
+- [x] Sistema funciona sin modelo
 
 ### Fase 5.1 - Router Inteligente
-- [ ] Análisis de contexto del prompt
-- [ ] Detectar intención sin keywords
-- [ ] Agente por defecto según proyecto
-- [ ] Fallback determinista
+- [x] Análisis de contexto del prompt
+- [x] Detectar intención sin keywords
+- [x] Agente por defecto según proyecto
+- [x] Fallback determinista
 
 ### Fase 6 - Perfilado por Proyecto
-- [ ] Perfil landing
-- [ ] Perfil saas
-- [ ] Perfil api
-- [ ] Activación automática por scanner
+- [x] Perfil landing
+- [x] Perfil saas
+- [x] Perfil api
+- [x] Activación automática por scanner
 
 ### Agentes Especializados
 - [x] SEO - Optimización para motores de búsqueda
@@ -91,17 +91,29 @@ Kilo (chat) → ai-core (agentes reales) → análisis del proyecto
 
 ## Próximo Objetivo
 
-**Fase 4.1** - Aplicación de cambios desde agentes
+*Todas las fases completadas*
 
 ---
 
 ## Uso Actual
 
 ```bash
-# Análisis básico
+# Análisis básico (sin LLM - determinista)
 node index.js --project ./mi-proyecto --prompt "optimizar SEO"
-node index.js --project ./mi-proyecto --prompt "seguridad jwt"
-node index.js --project ./mi-proyecto --prompt "test coverage"
+
+# Análisis con propuestas (nuevo)
+node index.js --project ./mi-proyecto --prompt "hero animation 3d"
+
+# Preview y Apply
+node index.js --project ./mi-proyecto --preview <proposal-id>
+node index.js --project ./mi-proyecto --apply <proposal-id>
+
+# Con LLM (configurar variables de entorno)
+export LLM_PROVIDER=minimax
+export LLM_API_KEY=tu-api-key
+export LLM_MODEL=MiniMax-Text-01
+
+node index.js --project ./mi-proyecto --prompt "crea un componente React"
 ```
 
 ---
@@ -117,14 +129,18 @@ ai-core/
 └── src/
     ├── scanner/           # Detecta lenguaje
     ├── router/            # "Cerebro"
-    ├── orchestrator/      # Coordena
-    ├── agents/            # 6 especializados
-    ├── memory/            # Persistencia
-    ├── file-engine/       # Cambios
-    └── mcp-server/        # Integración
+    ├── orchestrator/     # Coordena
+    ├── agents/           # 6 especializados
+    ├── memory/           # Persistencia
+    ├── file-engine/      # Cambios
+    ├── proposals/        # Propuestas estructuradas
+    ├── llm/              # Abstracción LLM
+    │   └── providers/    # minimax, openai, anthropic
+    ├── profiles/         # Perfiles por proyecto (NUEVO)
+    └── mcp-server/       # Integración
 ```
 
 ---
 
-*Actualizado: 2026-02-13*
-*Estado: En desarrollo Fase 4.1*
+*Actualizado: 2026-02-18*
+*Estado: 100% Completado - Proyecto Finalizado*

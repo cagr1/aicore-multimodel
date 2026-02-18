@@ -2,6 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import { detectors } from './detectors/index.js';
+import { detectProfile } from '../profiles/index.js';
 
 /**
  * Determine project type based on metadata
@@ -78,7 +79,8 @@ export function scan(projectPath) {
       framework: null,
       capabilities: [],
       signals: [],
-      projectType: 'unknown'
+      projectType: 'unknown',
+      profile: detectProfile({ language: 'unknown', framework: null, capabilities: [], signals: [] }, absolutePath)
     };
   }
   
@@ -99,7 +101,13 @@ export function scan(projectPath) {
       framework: primary.framework,
       capabilities: allCapabilities,
       signals: allSignals
-    })
+    }),
+    profile: detectProfile({
+      language: primary.language,
+      framework: primary.framework,
+      capabilities: allCapabilities,
+      signals: allSignals
+    }, absolutePath)
   };
 }
 
