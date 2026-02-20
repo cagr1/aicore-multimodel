@@ -1,7 +1,7 @@
 // MCP Server - Main entry point for MCP protocol
 import { scan } from '../scanner/index.js';
 import { route } from '../router/index.js';
-import { orchestrate } from '../orchestrator/index.js';
+import { orchestrate, applyFallbackRules } from '../orchestrator/index.js';
 import { memory } from '../memory/index.js';
 import { fileEngine } from '../file-engine/index.js';
 import { generateProposals, validateProposal } from '../proposals/index.js';
@@ -13,6 +13,28 @@ import { getSystemPrompt, getUserPrompt, validateBudget, TOKEN_BUDGET, OUTPUT_FO
  * In production, this should be persisted
  */
 const pendingProposals = new Map();
+
+// Valid agents whitelist
+const VALID_AGENTS = ['frontend', 'backend', 'security', 'seo', 'test', 'code'];
+
+/**
+ * Validates if an agent is in the whitelist
+ */
+function isValidAgent(agentId) {
+  return VALID_AGENTS.includes(agentId.toLowerCase());
+}
+
+/**
+ * Emit telemetry event
+ */
+function emitTelemetry(eventName, data) {
+  const event = {
+    timestamp: new Date().toISOString(),
+    event: eventName,
+    ...data
+  };
+  console.error('[TELEMETRY]', JSON.stringify(event));
+}
 
 /**
  * Generate proposals using LLM (when available)
@@ -92,18 +114,63 @@ async function generateLLMProposals(projectPath, userIntent, metadata) {
  * @param {string} params.projectPath
  * @param {string} params.userIntent
  * @param {boolean} params.generateProposals - Whether to generate proposals (default: true)
+ * @param {string} params.forceAgent - Force a specific agent (bypasses router)
  * @returns {Object} MCPOutput
  */
-export async function analyze({ projectPath, userIntent, generateProposals: doGenerateProposals = true }) {
+export async function analyze({ projectPath, userIntent, generateProposals: doGenerateProposals = true, forceAgent = null }) {
+  const promptId = 'prompt-' + Date.now();
+  let forcedByUser = false;
+  
   try {
     // Step 1: Scan project
     console.error('[MCP] Scanning project:', projectPath);
     const metadata = scan(projectPath);
     console.error('[MCP] Metadata:', JSON.stringify(metadata));
     
-    // Step 2: Route to agents
-    console.error('[MCP] Routing agents for intent:', userIntent);
-    const { agents: plan, reason } = await route({ metadata, userIntent });
+    // Step 2: Route to agents (or force agent)
+    let plan, reason;
+    
+    if (forceAgent && isValidAgent(forceAgent)) {
+      // Bypass router - use forced agent
+      const agentId = forceAgent.toLowerCase();
+      plan = [{ agentId, config: {} }];
+      reason = `Forced by user: ${agentId}`;
+      forcedByUser = true;
+      
+      // Emit override telemetry event
+      emitTelemetry('override_invoked', {
+        prompt_id: promptId,
+        agent: agentId,
+        user_intent: userIntent,
+        forced: true
+      });
+      
+      console.error('[MCP] Override: forcing agent:', agentId);
+    } else if (forceAgent && !isValidAgent(forceAgent)) {
+      // Invalid agent specified
+      console.error('[MCP] Warning: Invalid agent specified:', forceAgent, '- falling back to router');
+    }
+    
+    // Use router if no forced agent
+    if (!forceAgent || !isValidAgent(forceAgent)) {
+      console.error('[MCP] Routing agents for intent:', userIntent);
+      const routeResult = await route({ metadata, userIntent });
+      plan = routeResult.agents;
+      reason = routeResult.reason;
+      
+      // Apply fallback rules and scoring
+      const scoringResult = applyFallbackRules({
+        promptId,
+        userIntent,
+        keywordsScore: routeResult.scores?.keywords || 0.5,
+        profileMatchScore: routeResult.scores?.profile || 0.5,
+        historicalSuccessScore: 0.5,
+        complexityEstimate: routeResult.scores?.complexity || 0.3
+      });
+      
+      console.error('[MCP] Routing score:', scoringResult.score, '- route:', scoringResult.route);
+    }
+    
     console.error('[MCP] Selected agents:', plan.map(a => a.agentId).join(', '));
     console.error('[MCP] Reason:', reason);
     
@@ -139,6 +206,14 @@ export async function analyze({ projectPath, userIntent, generateProposals: doGe
         console.error('[MCP] Using deterministic proposals...');
         const proposalResult = await generateProposals(projectPath, userIntent, metadata);
         proposals = proposalResult.proposals || [];
+      }
+      
+      // Add forced_by_user metadata if agent was forced
+      if (forcedByUser) {
+        proposals = proposals.map(p => ({
+          ...p,
+          forced_by_user: true
+        }));
       }
       
       // Store proposals for later apply
@@ -387,6 +462,7 @@ export async function runCLI() {
   let userIntent = '';
   let command = 'analyze';
   let proposalId = '';
+  let forceAgent = null;
   
   // Parse arguments
   for (let i = 0; i < args.length; i++) {
@@ -395,6 +471,9 @@ export async function runCLI() {
       i++;
     } else if (args[i] === '--prompt' && args[i + 1]) {
       userIntent = args[i + 1];
+      i++;
+    } else if (args[i] === '--force-agent' && args[i + 1]) {
+      forceAgent = args[i + 1];
       i++;
     } else if (args[i] === '--status') {
       command = 'status';
@@ -419,6 +498,8 @@ export async function runCLI() {
     console.log('       node index.js --project <path> --config');
     console.log('       node index.js --project <path> --preview <proposal-id>');
     console.log('       node index.js --project <path> --apply <proposal-id>');
+    console.log('       node index.js --project <path> --prompt "<intent>" --force-agent <agent>');
+    console.log('       Valid agents: frontend, backend, security, seo, test, code');
     process.exit(1);
   }
   
@@ -427,9 +508,12 @@ export async function runCLI() {
   if (command === 'analyze') {
     console.error('Project:', projectPath);
     console.error('Intent:', userIntent);
+    if (forceAgent) {
+      console.error('Force Agent:', forceAgent);
+    }
     console.error('');
     
-    const result = await analyze({ projectPath, userIntent });
+    const result = await analyze({ projectPath, userIntent, forceAgent });
     console.log(JSON.stringify(result, null, 2));
     
     if (result.proposals?.length > 0) {
