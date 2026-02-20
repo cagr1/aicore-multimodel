@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { createBackup, restoreBackup } from './backup.js';
 import { diffFile } from './diff.js';
+import { runSimpleChecks } from './check-runner.js';
 
 /**
  * In-memory store for active patches
@@ -127,14 +128,21 @@ export function preparePatch(proposals) {
 }
 
 /**
- * Simulate run checks (lint, tests, etc.)
- * This is a placeholder - in production, actual checks would run
+ * Run checks - simulate or use real check runner
  * @param {string} projectPath 
  * @returns {Object} Check result
  */
 export function runChecks(projectPath) {
-  // Simulate checks - in production this would run actual tests/lint
-  // For now, randomly succeed (or always succeed for deterministic behavior)
+  // Check if we should run real checks
+  const runRealChecks = process.env.ATOMIC_REAL_CHECKS === 'true';
+  
+  if (runRealChecks) {
+    // Use real check runner - synchronously
+    const { runChecksInTempWorkspace } = require('./check-runner.js');
+    return runChecksInTempWorkspace(projectPath);
+  }
+  
+  // Default: simple checks (deterministic for testing)
   const shouldPass = process.env.ATOMIC_CHECKS_PASS !== 'false';
   
   return {
