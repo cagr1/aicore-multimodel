@@ -2,6 +2,7 @@
 import { diffFile } from './diff.js';
 import { createBackup, restoreBackup, listBackups } from './backup.js';
 import { applyChange, applyChanges } from './applier.js';
+import { preparePatch, applyAtomic, rollback, getPatchStatus, runChecks } from './atomic.js';
 
 /**
  * Generate diff for changes
@@ -50,7 +51,13 @@ export const fileEngine = {
   applyWithoutBackup,
   createBackup,
   restoreBackup,
-  listBackups
+  listBackups,
+  // Atomic operations
+  preparePatch,
+  applyAtomic,
+  rollback,
+  getPatchStatus,
+  runChecks
 };
 
 export default fileEngine;
