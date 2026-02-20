@@ -1,5 +1,127 @@
 // Orchestrator - Coordinates agent execution
 import { getAgent } from '../agents/index.js';
+import { computeScore } from '../router/scoring.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get config path
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const configPath = path.join(__dirname, '../../config/default.json');
+
+// Load config
+let config = {
+  routing: {
+    autoApplyThreshold: 0.7,
+    llmFallbackThreshold: 0.4
+  },
+  telemetry: {
+    enabled: true
+  }
+};
+
+// Try to load config file
+try {
+  if (fs.existsSync(configPath)) {
+    const fileConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config = { ...config, ...fileConfig };
+  }
+} catch (e) {
+  console.error('[Orchestrator] Warning: Could not load config, using defaults');
+}
+
+/**
+ * Emit telemetry event
+ * @param {string} eventName 
+ * @param {Object} data 
+ */
+function emitTelemetry(eventName, data) {
+  if (!config.telemetry.enabled) return;
+  
+  const event = {
+    timestamp: new Date().toISOString(),
+    event: eventName,
+    ...data
+  };
+  
+  console.error('[TELEMETRY]', JSON.stringify(event));
+}
+
+/**
+ * Determine route based on score
+ * @param {number} score - Confidence score from scoring module
+ * @returns {Object} Route decision with label
+ */
+function determineRoute(score) {
+  const { autoApplyThreshold, llmFallbackThreshold } = config.routing;
+  
+  if (score >= autoApplyThreshold) {
+    return {
+      route: 'candidate_auto_apply',
+      label: 'High confidence - auto-apply candidate'
+    };
+  }
+  
+  if (score >= llmFallbackThreshold) {
+    return {
+      route: 'fallback_llm',
+      label: 'Medium confidence - LLM fallback recommended'
+    };
+  }
+  
+  return {
+    route: 'clarify_needed',
+    label: 'Low confidence - user clarification needed'
+  };
+}
+
+/**
+ * Apply fallback rules and emit telemetry
+ * @param {Object} options 
+ * @returns {Object} Route decision with telemetry
+ */
+export function applyFallbackRules(options) {
+  const {
+    promptId = 'unknown',
+    keywordsScore = 0,
+    profileMatchScore = 0,
+    historicalSuccessScore = 0.5,
+    complexityEstimate = 0,
+    userIntent = ''
+  } = options;
+  
+  // Compute score using scoring module
+  const scoreResult = computeScore({
+    keywordsScore,
+    profileMatchScore,
+    historicalSuccessScore,
+    complexityEstimate
+  }, {
+    promptId,
+    enableLogging: false
+  });
+  
+  // Determine route based on score
+  const routeDecision = determineRoute(scoreResult.score);
+  
+  // Emit telemetry event
+  emitTelemetry('route_decision', {
+    prompt_id: promptId,
+    score: scoreResult.score,
+    route: routeDecision.route,
+    user_intent: userIntent,
+    level: scoreResult.level
+  });
+  
+  return {
+    score: scoreResult.score,
+    level: scoreResult.level,
+    route: routeDecision.route,
+    label: routeDecision.label,
+    breakdown: scoreResult.breakdown
+  };
+}
 
 /**
  * Execute agents according to the plan
@@ -89,4 +211,4 @@ export async function orchestrate(input) {
   };
 }
 
-export default { orchestrate };
+export default { orchestrate, applyFallbackRules };

@@ -1,0 +1,10 @@
+{
+  "routing": {
+    "autoApplyThreshold": 0.7,
+    "llmFallbackThreshold": 0.4
+  },
+  "telemetry": {
+    "enabled": true,
+    "events": ["route_decision", "agent_execution", "proposal_generated"]
+  }
+}
