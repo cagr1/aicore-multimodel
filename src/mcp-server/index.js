@@ -103,7 +103,7 @@ export async function analyze({ projectPath, userIntent, generateProposals: doGe
     
     // Step 2: Route to agents
     console.error('[MCP] Routing agents for intent:', userIntent);
-    const { agents: plan, reason } = route({ metadata, userIntent });
+    const { agents: plan, reason } = await route({ metadata, userIntent });
     console.error('[MCP] Selected agents:', plan.map(a => a.agentId).join(', '));
     console.error('[MCP] Reason:', reason);
     
