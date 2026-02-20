@@ -12,6 +12,9 @@ Sistema de orquestación multi-agente externo, independiente de cualquier proyec
 - **Memoria controlada**: Persistencia por proyecto con límite configurable
 - **Perfilado automático**: Detecta tipo de proyecto (landing, saas, api...)
 - **Router inteligente**: Detecta intención sin keywords explícitas
+- **Quality Assurance**: Atomic apply, secret scanner, test validation
+- **Telemetry**: Métricas Prometheus con Grafana dashboard
+- **A/B Testing**: Comparación ai-core vs LLM fallback
 
 ## Inicio Rápido
 
@@ -38,18 +41,29 @@ ai-core/
 ├── USAGE.md              # Guía de uso
 ├── README.md             # Este archivo
 ├── plans/
-│   └── architecture.md   # Arquitectura del proyecto
+│   ├── architecture.md   # Arquitectura del proyecto
+│   └── system.md         # Overview del sistema
+├── config/
+│   ├── default.json      # Configuración por defecto
+│   └── ab_config.json    # Thresholds A/B testing
+├── scripts/
+│   ├── ab-test.cjs       # Script A/B testing
+│   └── dashboard-seed.cjs # Dashboard Grafana
 └── src/
     ├── scanner/          # Detecta lenguaje/framework
-    ├── router/          # Selecciona agente (inteligente)
-    ├── orchestrator/    # Coordena ejecución
-    ├── agents/          # 6 agentes especializados
-    ├── memory/          # Persistencia JSONL
-    ├── file-engine/     # Diff, backup, apply
-    ├── proposals/       # Propuestas estructuradas
-    ├── llm/             # Abstracción LLM
-    │   └── providers/   # minimax, openai, anthropic
-    ├── profiles/        # Perfiles por proyecto
+    ├── router/           # Selecciona agente (inteligente)
+    ├── orchestrator/     # Coordina ejecución
+    ├── agents/           # 6 agentes especializados
+    ├── memory/           # Persistencia JSONL + TTL
+    ├── file-engine/      # Diff, backup, atomic apply
+    ├── proposals/        # Propuestas estructuradas
+    ├── llm/              # Abstracción LLM
+    │   ├── providers/    # minimax, openai, anthropic
+    │   └── kilo.cjs      # Kilo API client
+    ├── telemetry/        # Métricas Prometheus
+    ├── metrics-server.js # Servidor métricas
+    ├── config/           # Configuración runtime
+    ├── profiles/         # Perfiles por proyecto
     └── mcp-server/      # Servidor MCP
 ```
 
@@ -81,6 +95,9 @@ node index.js --project ./mi-proyecto --prompt "optimizar SEO"
 # Análisis con propuestas
 node index.js --project ./mi-proyecto --prompt "hero animation 3d"
 
+# Forzar agente específico
+node index.js --project ./mi-proyecto --prompt "crear test" --force-agent test
+
 # Preview
 node index.js --project ./mi-proyecto --preview <proposal-id>
 
@@ -90,9 +107,64 @@ node index.js --project ./mi-proyecto --apply <proposal-id>
 
 Ver [USAGE.md](USAGE.md) para más ejemplos.
 
+## Telemetría
+
+```bash
+# Iniciar servidor de métricas
+node src/metrics-server.js
+
+# Métricas disponibles en http://localhost:9091/metrics
+```
+
+Ver [plans/system.md](plans/system.md) para dashboard Grafana.
+
+## A/B Testing
+
+```bash
+# Ejecutar tests A/B
+node scripts/ab-test.cjs
+
+# Con límite de prompts
+node scripts/ab-test.cjs --limit 10
+
+# Threshold personalizado
+node scripts/ab-test.cjs --threshold 0.5
+```
+
+## Configuración
+
+### Variables de Entorno
+
+| Variable | Descripción | Default |
+|----------|-------------|---------|
+| `LLM_PROVIDER` | Proveedor LLM | - |
+| `LLM_API_KEY` | API key | - |
+| `LLM_MODEL` | Modelo | - |
+| `AI_CORE_TTL_DAYS` | Días TTL memoria | 30 |
+| `AI_CORE_MEMORY_DIR` | Directorio memoria | ~/.ai-core |
+| `KILO_API_URL` | URL Kilo API | - |
+
+### Archivo config/ab_config.json
+
+```json
+{
+  "autoApply": 0.75,
+  "llmFallback": 0.4,
+  "maxAutoApplyPerDay": 10,
+  "forceApplyAllowed": false
+}
+```
+
 ## Integración con Kilo
 
 Configura el endpoint MCP en Kilo para usar ai-core como herramienta externa.
+
+## Tests
+
+```bash
+npm test
+# ✓ 46 tests passing
+```
 
 ## Licencia
 
