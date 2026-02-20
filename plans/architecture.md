@@ -25,6 +25,14 @@ Kilo (chat) → ai-core (agentes reales) → análisis del proyecto
 | MCP Server | ✅ | CLI + protocolo MCP |
 | File Engine | ✅ | Diff, backup, atomic apply |
 | Proposals | ✅ | Propuestas estructuradas con tests |
+| Secret Scanner | ✅ | Detecta secrets en propuestas |
+| Test Validator | ✅ | Validación de tests en sandbox |
+| Check Runner | ✅ | Ejecuta lint, build, test |
+| Telemetría | ✅ | Métricas Prometheus |
+| A/B Testing | ✅ | Script de comparación ai-core vs LLM |
+| Kilo API | ✅ | Integración para validación de patches |
+| AB Config | ✅ | Thresholds configurables |
+| PR Template | ✅ | Template con checklist |
 
 ---
 
@@ -170,6 +178,79 @@ Detecta y bloquea secrets en proposals:
 
 **Dashboard:**
 - `scripts/dashboard-seed.cjs` - Generador de dashboard Grafana
+
+### 9. A/B Testing
+
+**Archivos:**
+- `tests/ab_prompts.json` - 100 prompts de prueba
+- `scripts/ab-test.cjs` - Script de testing A/B
+
+**KPIgenerados:**
+- `total_prompts` - Total de prompts
+- `llm_fallback_count` - Prompts que necesitaron LLM
+- `ai_core_only_count` - Prompts manejados por ai-core
+- `apply_possible_count` - Prompts con alta confianza
+- `agent_accuracy` - % de selección correcta de agente
+
+**Uso:**
+```bash
+node scripts/ab-test.cjs
+node scripts/ab-test.cjs --limit 10
+node scripts/ab-test.cjs --threshold 0.5
+```
+
+### 10. Kilo API Integration
+
+**Archivo:** `src/llm/kilo.cjs`
+
+Permite validar patches via Kilo:
+```bash
+export KILO_API_URL=http://localhost:3000/api
+```
+
+**Request:**
+```json
+{
+  "context": "repo snapshot",
+  "prompt": "Valida y mejora este patch..."
+}
+```
+
+**Response:**
+```json
+{
+  "confidence": 0.95,
+  "patches": ["git-diff"],
+  "tests": [{"file": "test.js", "content": "..."}],
+  "notes": "2-líneas"
+}
+```
+
+### 11. Configuración AB
+
+**Archivo:** `config/ab_config.json`
+
+```json
+{
+  "autoApply": 0.75,
+  "llmFallback": 0.4,
+  "maxAutoApplyPerDay": 10,
+  "forceApplyAllowed": false
+}
+```
+
+**Métricas de auto-apply:**
+- `ai_core_auto_apply_attempt_total` - Intentos de auto-apply
+- `ai_core_auto_apply_alert_total` - Alertas de límite excedido
+- `ai_core_auto_apply_daily_count` - Conteo diario
+
+### 12. PR Template
+
+**Archivo:** `.github/PULL_REQUEST_TEMPLATE.md`
+
+Incluye:
+- Checklist: Build, Tests, Secret scan, Lint, Smoke test
+- Metadata: generated_by, agent, confidence
 
 ---
 
