@@ -2,6 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileEngine } from '../file-engine/index.js';
+import { scanProposals } from '../file-engine/secret-scanner.js';
 
 /**
  * Intent pattern matchers → Proposal generators
@@ -117,12 +118,34 @@ export async function generateProposals(projectPath, userIntent, metadata) {
   // Generate diffs for all proposals
   const diffs = fileEngine.generateDiffs(proposals.map(p => p.change));
   
+  // Scan proposals for secrets
+  const proposalsWithDiffs = proposals.map((p, i) => ({
+    ...p,
+    diff: diffs[i],
+    tests: p.tests || []
+  }));
+  
+  const securityScan = scanProposals(proposalsWithDiffs);
+  
+  // Add security scores to proposals
+  const proposalsWithSecurity = proposalsWithDiffs.map((p, i) => ({
+    ...p,
+    security_score: securityScan.proposals[i]?.security_score ?? 1.0,
+    security_findings: securityScan.proposals[i]?.findings || [],
+    blocked: securityScan.proposals[i]?.blocked || false
+  }));
+  
+  // Filter out blocked proposals if needed
+  const validProposals = proposalsWithSecurity.filter(p => !p.blocked);
+  
   return {
     success: true,
-    proposals: proposals.map((p, i) => ({
-      ...p,
-      diff: diffs[i]
-    })),
+    proposals: validProposals,
+    security_scan: {
+      total_scanned: securityScan.proposals.length,
+      blocked_count: securityScan.blocked_count,
+      all_clean: securityScan.all_clean
+    },
     message: 'Generated ' + proposals.length + ' proposal(s)'
   };
 }

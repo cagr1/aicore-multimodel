@@ -43,6 +43,24 @@
  * @property {string} file
  * @property {string} description
  * @property {string} diff
+ * @property {string} content - File content (for create/update)
+ */
+
+/**
+ * Test attachment for proposal
+ * @typedef {Object} TestAttachment
+ * @property {string} path - Test file path
+ * @property {string} content - Test file content
+ */
+
+/**
+ * Agent execution result
+ * @typedef {Object} AgentResult
+ * @property {boolean} success
+ * @property {Problem[]} diagnostics
+ * @property {Change[]} changes
+ * @property {string} summary
+ * @property {TestAttachment[]} tests - Optional tests to validate proposal
  */
 
 export default {};

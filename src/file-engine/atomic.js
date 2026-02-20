@@ -4,6 +4,8 @@ import path from 'path';
 import { createBackup, restoreBackup } from './backup.js';
 import { diffFile } from './diff.js';
 import { runSimpleChecks } from './check-runner.js';
+import { validateTestsInSandbox, requiresTesting } from './test-validator.js';
+import { scanProposals } from './secret-scanner.js';
 
 /**
  * In-memory store for active patches
@@ -121,6 +123,7 @@ export function preparePatch(proposals) {
     timestamp,
     files,
     proposals: proposals.map(p => p.id),
+    proposalsData: proposals, // Store full proposals for test validation
     diffs,
     status: 'prepared',
     snapshots: {}
@@ -162,7 +165,7 @@ export function runChecks(projectPath) {
  * @param {Object} patch - Prepared patch
  * @returns {Object} Apply result
  */
-export function applyAtomic(projectPath, patch) {
+export async function applyAtomic(projectPath, patch) {
   if (!patch || !patch.success) {
     return {
       success: false,
@@ -178,6 +181,25 @@ export function applyAtomic(projectPath, patch) {
   }
   
   const { patchId, files } = patch;
+  
+  // Step 0: Security check - scan for secrets before applying
+  console.error('[Atomic] Scanning for secrets...');
+  const securityScan = scanProposals(patch.proposalsData || []);
+  
+  if (!securityScan.all_clean) {
+    const blockedProposals = securityScan.proposals.filter(p => p.blocked);
+    
+    if (blockedProposals.length > 0) {
+      console.error('[Atomic] Blocking proposals due to secrets detected');
+      return {
+        success: false,
+        error: 'Security violation: secrets detected in proposals',
+        blocked: true,
+        blocked_count: blockedProposals.length,
+        findings: securityScan.proposals.flatMap(p => p.findings || [])
+      };
+    }
+  }
   
   // Step 1: Create snapshot before applying
   console.error('[Atomic] Creating snapshot for:', files.join(', '));
@@ -238,7 +260,49 @@ export function applyAtomic(projectPath, patch) {
   console.error('[Atomic] Running checks...');
   const checkResult = runChecks(projectPath);
   
-  // Step 4: If checks fail, rollback
+  // Step 4: Validate tests in sandbox (if proposals have tests or changes require testing)
+  const proposalsNeedingTests = patch.proposalsData?.filter(p => requiresTesting(p)) || [];
+  let testValidationResult = { valid: true };
+  
+  if (proposalsNeedingTests.length > 0) {
+    console.error('[Atomic] Validating tests in sandbox...');
+    
+    const tests = [];
+    const changes = [];
+    
+    for (const p of proposalsNeedingTests) {
+      if (p.tests) {
+        tests.push(...p.tests);
+      }
+      if (p.change) {
+        changes.push(p.change);
+      }
+    }
+    
+    // Run test validation synchronously
+    testValidationResult = await validateTestsInSandbox(projectPath, tests, changes);
+    
+    // If test validation fails, rollback
+    if (!testValidationResult.valid) {
+      console.error('[Atomic] Test validation failed, rolling back...');
+      console.error('[Atomic] Test errors:', testValidationResult.errors);
+      
+      const rollbackResult = rollback(projectPath, patchId);
+      
+      return {
+        success: false,
+        applied: appliedFiles,
+        rolledBack: rollbackResult.success,
+        error: 'Test validation failed: ' + testValidationResult.errors.join('; '),
+        testResults: testValidationResult,
+        snapshotId: snapshot.id
+      };
+    }
+    
+    console.error('[Atomic] Tests passed:', testValidationResult.testsPassed, 'smoke tests generated:', testValidationResult.smokeTestsGenerated.length);
+  }
+  
+  // Step 5: If checks fail, rollback
   if (!checkResult.success) {
     console.error('[Atomic] Checks failed, rolling back...');
     

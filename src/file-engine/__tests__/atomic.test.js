@@ -113,7 +113,7 @@ describe('Atomic Patch Manager', () => {
       ];
 
       const patch = preparePatch(proposals);
-      const result = applyAtomic(testDir, patch);
+      const result = await applyAtomic(testDir, patch);
 
       expect(result.success).toBe(true);
       expect(result.applied).toContain(testFileName);

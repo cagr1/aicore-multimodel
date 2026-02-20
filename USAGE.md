@@ -202,6 +202,56 @@ Si no configuras API Key, el sistema funciona en modo determinista:
 
 ---
 
+## Telemetría y Métricas
+
+El servidor incluye un endpoint de métricas compatible con Prometheus:
+
+```bash
+# Iniciar servidor con métricas
+node src/metrics-server.js
+# o
+npm run start:metrics
+```
+
+Las métricas estarán disponibles en: `http://localhost:9091/metrics`
+
+### Métricas Disponibles
+
+| Métrica | Tipo | Descripción |
+|---------|------|-------------|
+| `ai_core_proposals_analyzed_total` | Counter | Propuestas analizadas |
+| `ai_core_proposals_generated_total` | Counter | Propuestas generadas por agente |
+| `ai_core_apply_result_total` | Counter | Resultados de aplicación por estado |
+| `ai_core_analyze_latency_seconds` | Histogram | Latencia de análisis |
+| `ai_core_apply_latency_seconds` | Histogram | Latencia de aplicación |
+| `ai_core_secrets_detected_total` | Counter | Secretos detectados |
+| `ai_core_scan_errors_total` | Counter | Errores de escaneo |
+| `ai_core_memory_entries` | Gauge | Entradas en memoria |
+
+### Dashboard Grafana
+
+Para importar el dashboard:
+
+```bash
+# Generar configuración
+node scripts/dashboard-seed.cjs
+
+# Importar en Grafana (UI)
+# 1. Ve a Dashboards → Import
+# 2. Copia el JSON generado
+```
+
+---
+
+## Próximos Pasos
+
+- [ ] Probar con diferentes tipos de proyectos
+- [ ] Configurar el proveedor LLM preferido
+- [ ] Integrar con Kilo.ai via MCP
+- [ ] Configurar Grafana para métricas
+
+---
+
 ## Próximos Pasos
 
 - [ ] Probar con diferentes tipos de proyectos

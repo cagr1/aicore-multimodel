@@ -3,7 +3,7 @@ import * as storage from './storage.js';
 
 export const memory = {
   /**
-   * Save a run to memory
+   * Save a run to memory (with automatic redaction)
    */
   saveRun(projectPath, agents, userIntent, success, summary) {
     return storage.appendRun(projectPath, {
@@ -29,7 +29,7 @@ export const memory = {
   },
   
   /**
-   * Get memory status (size, runs, limits)
+   * Get memory status (size, runs, limits, TTL)
    */
   getStatus(projectPath) {
     return storage.getMemoryStatus(projectPath);
@@ -39,11 +39,44 @@ export const memory = {
    * Get current configuration
    */
   getConfig() {
-    return {
-      memoryDir: process.env.AI_CORE_MEMORY_DIR || storage.DEFAULT_MEMORY_DIR,
-      maxFileSize: parseInt(process.env.AI_CORE_MAX_FILE_SIZE || '10485760', 10),
-      maxRuns: parseInt(process.env.AI_CORE_MAX_RUNS || '1000', 10),
-    };
+    return storage.getMemoryConfig();
+  },
+  
+  // Admin functions
+  
+  /**
+   * Purge expired records for a project (TTL)
+   */
+  purgeExpired(projectPath) {
+    return storage.purgeExpired(projectPath);
+  },
+  
+  /**
+   * Purge all records for a project
+   */
+  purgeAll(projectPath, reason = 'manual') {
+    return storage.purgeAll(projectPath, reason);
+  },
+  
+  /**
+   * Get all projects with their stats
+   */
+  getAllProjects() {
+    return storage.getAllProjects();
+  },
+  
+  /**
+   * Bulk purge expired records from all projects
+   */
+  purgeAllExpired() {
+    return storage.purgeAllExpired();
+  },
+  
+  /**
+   * Get purge/rotation logs
+   */
+  getPurgeLogs(limit = 100) {
+    return storage.getPurgeLogs(limit);
   }
 };
 

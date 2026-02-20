@@ -7,6 +7,7 @@ import { fileEngine } from '../file-engine/index.js';
 import { generateProposals, validateProposal } from '../proposals/index.js';
 import { initLLM, isConfigured, chatWithSystem, loadConfig } from '../llm/index.js';
 import { getSystemPrompt, getUserPrompt, validateBudget, TOKEN_BUDGET, OUTPUT_FORMAT } from '../llm/prompts.js';
+import telemetry from '../telemetry/index.js';
 
 /**
  * In-memory store for pending proposals
@@ -120,6 +121,10 @@ async function generateLLMProposals(projectPath, userIntent, metadata) {
 export async function analyze({ projectPath, userIntent, generateProposals: doGenerateProposals = true, forceAgent = null }) {
   const promptId = 'prompt-' + Date.now();
   let forcedByUser = false;
+  const startTime = Date.now();
+  
+  // Emit prompt received event
+  telemetry.incPromptReceived();
   
   try {
     // Step 1: Scan project
@@ -168,11 +173,25 @@ export async function analyze({ projectPath, userIntent, generateProposals: doGe
         complexityEstimate: routeResult.scores?.complexity || 0.3
       });
       
+      // Emit route decision and score telemetry
+      telemetry.incRouteDecision(scoringResult.route, plan[0]?.agentId || 'unknown');
+      telemetry.setScore(plan[0]?.agentId || 'unknown', scoringResult.score);
+      
+      // Emit fallback if needed
+      if (scoringResult.route === 'fallback_llm') {
+        telemetry.incFallbackInvoked('low_score');
+      }
+      
       console.error('[MCP] Routing score:', scoringResult.score, '- route:', scoringResult.route);
     }
     
     console.error('[MCP] Selected agents:', plan.map(a => a.agentId).join(', '));
     console.error('[MCP] Reason:', reason);
+    
+    // Emit agents activated telemetry
+    for (const agent of plan) {
+      telemetry.incAgentsActivated(agent.agentId);
+    }
     
     // Step 3: Orchestrate execution
     console.error('[MCP] Executing agents...');
@@ -237,6 +256,15 @@ export async function analyze({ projectPath, userIntent, generateProposals: doGe
     );
     
     const memoryReference = memory.getReference(projectPath);
+    
+    // Emit latency telemetry
+    const totalLatency = Date.now() - startTime;
+    telemetry.recordLatency('analyze_total', totalLatency);
+    
+    // Estimate tokens saved (deterministic mode = no LLM tokens)
+    if (!isConfigured()) {
+      telemetry.incTokensSavedEstimate(150); // ~150 tokens saved by not calling LLM
+    }
     
     // Return structured response
     return {
@@ -330,7 +358,14 @@ export async function previewProposal({ projectPath, proposalId }) {
 /**
  * Apply a proposal
  */
-export async function applyProposal({ projectPath, proposalId, backup = true }) {
+export async function applyProposal({ projectPath, projectPath, proposalId, backup = true }) {
+  const startTime = Date.now();
+  
+  // Emit apply attempt
+  if (telemetry) {
+    telemetry.emit('apply_attempt', { proposalId, hasBackup: backup });
+  }
+  
   // Find proposal
   let foundProposal = null;
   
@@ -362,8 +397,22 @@ export async function applyProposal({ projectPath, proposalId, backup = true }) 
   const applyFn = backup ? fileEngine.applyWithBackup : fileEngine.applyWithoutBackup;
   const result = applyFn(projectPath, [foundProposal.change]);
   
+  // Calculate latency
+  const latencyMs = Date.now() - startTime;
+  const success = result[0]?.success || false;
+  
+  // Emit apply result
+  if (telemetry) {
+    telemetry.emit('apply_result', { 
+      proposalId, 
+      success, 
+      latencyMs,
+      hasBackup: backup
+    });
+  }
+  
   return {
-    success: result[0]?.success || false,
+    success,
     applied: result[0]?.success ? [{
       file: foundProposal.change?.file,
       action: result[0]?.action,
@@ -378,6 +427,8 @@ export async function applyProposal({ projectPath, proposalId, backup = true }) 
  * Apply all pending proposals
  */
 export async function applyAllProposals({ projectPath, backup = true }) {
+  const startTime = Date.now();
+  
   let allProposals = [];
   
   for (const [key, data] of pendingProposals) {
@@ -394,12 +445,35 @@ export async function applyAllProposals({ projectPath, backup = true }) {
     };
   }
   
+  // Emit apply attempt for each proposal
+  if (telemetry) {
+    allProposals.forEach(p => {
+      telemetry.emit('apply_attempt', { proposalId: p.id, hasBackup: backup });
+    });
+  }
+  
   // Apply all
   const applyFn = backup ? fileEngine.applyWithBackup : fileEngine.applyWithoutBackup;
   const result = applyFn(projectPath, allProposals.map(p => p.change));
   
+  // Calculate latency
+  const latencyMs = Date.now() - startTime;
+  const allSuccess = result.every(r => r.success);
+  
+  // Emit apply result for each proposal
+  if (telemetry) {
+    result.forEach((r, i) => {
+      telemetry.emit('apply_result', { 
+        proposalId: allProposals[i]?.id, 
+        success: r.success, 
+        latencyMs: Math.round(latencyMs / result.length),
+        hasBackup: backup
+      });
+    });
+  }
+  
   return {
-    success: result.every(r => r.success),
+    success: allSuccess,
     applied: result.map((r, i) => ({
       file: allProposals[i].change?.file,
       action: r.action,

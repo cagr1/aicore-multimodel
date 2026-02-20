@@ -3,6 +3,8 @@ import { diffFile } from './diff.js';
 import { createBackup, restoreBackup, listBackups } from './backup.js';
 import { applyChange, applyChanges } from './applier.js';
 import { preparePatch, applyAtomic, rollback, getPatchStatus, runChecks } from './atomic.js';
+import { validateTestsInSandbox, requiresTesting } from './test-validator.js';
+import { scanPatch, scanProposals, scanContent, maskSecretsInContent } from './secret-scanner.js';
 
 /**
  * Generate diff for changes
@@ -57,7 +59,15 @@ export const fileEngine = {
   applyAtomic,
   rollback,
   getPatchStatus,
-  runChecks
+  runChecks,
+  // Test validation
+  validateTestsInSandbox,
+  requiresTesting,
+  // Secret scanning
+  scanPatch,
+  scanProposals,
+  scanContent,
+  maskSecretsInContent
 };
 
 export default fileEngine;
