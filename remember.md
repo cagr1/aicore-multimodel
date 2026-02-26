@@ -117,7 +117,7 @@ Cuando ai-core escanea un proyecto que NO está en `_index.json`, se registra au
 | Fase | Estado | Notas |
 |------|--------|-------|
 | Fase 1: Multi-Model Routing | ✅ Completada | Commit 7138249 |
-| Fase 2: Auto-Registro | 🔜 Pendiente | - |
+| Fase 2: Auto-Registro | ✅ Completada | Commit 99afd67 |
 | Fase 3: Phase Tracking | ⏳ Pendiente | - |
 | Fase 4: CLI Interactivo | ⏳ Pendiente | - |
 | Fase 5: Portabilidad | ⏳ Pendiente | - |
