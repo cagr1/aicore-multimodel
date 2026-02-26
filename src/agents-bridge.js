@@ -3,6 +3,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { detectPhase } from './scanner/phase-detector.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -405,6 +406,15 @@ export function getOrCreateProjectContext(options) {
   const matchedProject = matchProject(metadata, projectPath);
   
   if (matchedProject) {
+    // Auto-update phase if project exists
+    if (projectPath) {
+      try {
+        updateProjectPhase(projectPath, matchedProject.id);
+      } catch (e) {
+        // Non-fatal
+      }
+    }
+    
     return {
       ...getAgentsContext(options),
       autoRegistered: false
@@ -438,6 +448,62 @@ export function getOrCreateProjectContext(options) {
     projectState: null,
     autoRegistered: false
   };
+}
+
+/**
+ * Update project phase automatically based on code analysis
+ * @param {string} projectPath - Path to the project
+ * @param {string} projectId - Project ID
+ * @returns {Object|null} Updated state or null
+ */
+export function updateProjectPhase(projectPath, projectId) {
+  if (!projectPath || !projectId) return null;
+  
+  // Detect phase from code
+  const phaseResult = detectPhase(projectPath);
+  
+  // Get current state
+  const currentState = getProjectState(projectId);
+  
+  if (!currentState) {
+    console.error('[AgentsBridge] Cannot update phase: state.json not found for', projectId);
+    return null;
+  }
+  
+  const currentPhase = currentState.current_phase;
+  const detectedPhase = phaseResult.phase;
+  
+  // Only update if phase has changed significantly
+  if (currentPhase !== detectedPhase) {
+    console.error(`[AgentsBridge] Phase change detected for ${projectId}: ${currentPhase} → ${detectedPhase} (confidence: ${phaseResult.confidence})`);
+    
+    // Update state
+    const updatedState = {
+      ...currentState,
+      current_phase: detectedPhase,
+      last_updated: new Date().toISOString(),
+      phaseDetection: {
+        confidence: phaseResult.confidence,
+        signals: phaseResult.signals,
+        scores: phaseResult.scores,
+        recommendations: phaseResult.recommendations
+      }
+    };
+    
+    // Save updated state
+    const statePath = path.join(agentsBasePath, 'orchestrator', 'projects', projectId, 'state.json');
+    try {
+      fs.writeFileSync(statePath, JSON.stringify(updatedState, null, 2), 'utf-8');
+      console.error('[AgentsBridge] Updated phase for', projectId, 'to', detectedPhase);
+      return updatedState;
+    } catch (e) {
+      console.error('[AgentsBridge] Failed to update phase:', e.message);
+      return null;
+    }
+  } else {
+    console.error('[AgentsBridge] Phase unchanged for', projectId, ':', currentPhase);
+    return currentState;
+  }
 }
 
 // ─── Domain Rules Loading ────────────────────────────────────────────
