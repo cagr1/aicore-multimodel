@@ -6,19 +6,36 @@ import path from 'path';
 import readline from 'readline';
 
 /**
- * Create readline interface
+ * Lazy readline interface (created on demand to avoid conflicts with cli/index.js)
  */
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+let rl = null;
+
+function getRL() {
+  if (!rl) {
+    rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+  }
+  return rl;
+}
+
+/**
+ * Close readline when done
+ */
+function closeRL() {
+  if (rl) {
+    rl.close();
+    rl = null;
+  }
+}
 
 /**
  * Ask a question and get answer
  */
 function ask(question) {
   return new Promise((resolve) => {
-    rl.question(question, resolve);
+    getRL().question(question, resolve);
   });
 }
 
@@ -191,6 +208,7 @@ Cómo usar ai-core:
 Para más información: cat README.md
   `);
   
+  closeRL();
   return config;
 }
 
@@ -238,7 +256,13 @@ export async function importConfig(inputPath = './ai-core-export.json') {
     return null;
   }
   
-  const config = JSON.parse(fs.readFileSync(inputPath, 'utf-8'));
+  let config;
+  try {
+    config = JSON.parse(fs.readFileSync(inputPath, 'utf-8'));
+  } catch (e) {
+    console.error('❌ Error leyendo archivo JSON:', e.message);
+    return null;
+  }
   
   // Ask for confirmation
   console.log('\n📦 Configuración a importar:');
@@ -300,6 +324,7 @@ export async function importConfig(inputPath = './ai-core-export.json') {
   
   console.log('✅ Importación completada!');
   
+  closeRL();
   return config;
 }
 

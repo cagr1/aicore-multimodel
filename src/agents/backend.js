@@ -8,27 +8,91 @@ import path from 'path';
 const SUPPORTED_LANGUAGES = ['javascript', 'typescript', 'python', 'go', 'rust', 'php', 'csharp'];
 
 /**
+ * Safely read directory contents
+ * @param {string} dirPath - Directory path to read
+ * @returns {string[]} Array of filenames, empty on error
+ */
+function safeReaddir(dirPath) {
+  try {
+    if (!fs.existsSync(dirPath)) {
+      return [];
+    }
+    return fs.readdirSync(dirPath);
+  } catch (error) {
+    if (error.code === 'EACCES') {
+      console.warn(`[Backend Agent] Permission denied: ${dirPath}`);
+    } else if (error.code === 'ENOENT') {
+      console.warn(`[Backend Agent] Directory not found: ${dirPath}`);
+    } else {
+      console.warn(`[Backend Agent] Error reading directory: ${error.message}`);
+    }
+    return [];
+  }
+}
+
+/**
+ * Validate agent context
+ * @param {Object} context - Agent context
+ * @returns {Object} Validation result { valid: boolean, error?: string }
+ */
+function validateContext(context) {
+  if (!context) {
+    return { valid: false, error: 'Context is required' };
+  }
+  
+  if (!context.projectPath) {
+    return { valid: false, error: 'projectPath is required' };
+  }
+  
+  if (typeof context.projectPath !== 'string') {
+    return { valid: false, error: 'projectPath must be a string' };
+  }
+  
+  if (!fs.existsSync(context.projectPath)) {
+    return { valid: false, error: `Project path does not exist: ${context.projectPath}` };
+  }
+  
+  return { valid: true };
+}
+
+/**
  * Analyze backend project
  */
 export async function run(context) {
+  // Validate context
+  const validation = validateContext(context);
+  if (!validation.valid) {
+    return {
+      success: false,
+      diagnostics: [{
+        severity: 'error',
+        message: `Invalid context: ${validation.error}`,
+        file: '',
+        line: 0
+      }],
+      changes: [],
+      summary: `Error: ${validation.error}`
+    };
+  }
+
   const { projectPath, metadata, userIntent } = context;
-  const { language, framework, capabilities } = metadata;
+  const { language, framework, capabilities } = metadata || {};
   
   const diagnostics = [];
   const changes = [];
   
   // Check language support
-  if (!SUPPORTED_LANGUAGES.includes(language)) {
+  if (!language || !SUPPORTED_LANGUAGES.includes(language)) {
     return {
       success: false,
       diagnostics: [{
         severity: 'warning',
-        message: `Backend agent does not support language: ${language}`,
+        message: `Backend agent does not support language: ${language || 'unknown'}`,
         file: '',
         line: 0
       }],
       changes: [],
-      summary: `Skipped: language ${language} not supported by Backend agent`
+      summary: `Skipped: language ${language || 'unknown'} not supported by Backend agent`
     };
   }
   
@@ -55,7 +119,7 @@ export async function run(context) {
  */
 function analyzeAPI(projectPath, language, framework) {
   const diagnostics = [];
-  const files = fs.readdirSync(projectPath);
+  const files = safeReaddir(projectPath);
   
   // Check for API routes structure
   const hasRoutes = files.some(f => f.includes('routes') || f.includes('routers'));
@@ -119,7 +183,7 @@ function analyzeAPI(projectPath, language, framework) {
  */
 function analyzeCommonBackend(projectPath, language) {
   const diagnostics = [];
-  const files = fs.readdirSync(projectPath);
+  const files = safeReaddir(projectPath);
   
   // Check for environment variables
   const hasEnvFile = files.includes('.env') || files.includes('.env.example');

@@ -21,19 +21,26 @@ let sessionStats = {
 };
 
 /**
- * Create readline interface
+ * Lazy readline interface (created on demand to avoid conflicts with portability.js)
  */
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+let rl = null;
+
+function getRL() {
+  if (!rl) {
+    rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+  }
+  return rl;
+}
 
 /**
  * Ask a question and get answer
  */
 function ask(question) {
   return new Promise((resolve) => {
-    rl.question(question, resolve);
+    getRL().question(question, resolve);
   });
 }
 
@@ -220,7 +227,8 @@ export async function startInteractive(projectPath) {
       // Commands
       if (trimmed === '/exit' || trimmed === '/quit') {
         console.log('\n👋 Hasta luego!');
-        rl.close();
+        getRL().close();
+        rl = null;
         break;
       }
       

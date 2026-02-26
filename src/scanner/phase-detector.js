@@ -1,6 +1,7 @@
 // Phase Detector - Automatically detect project phase based on code signals
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 
 /**
  * Phase definitions
@@ -237,7 +238,6 @@ function estimateCommits(projectPath) {
   
   try {
     // Try to read commit count from git
-    const { execSync } = require('child_process');
     const count = parseInt(execSync('git rev-list --count HEAD', { 
       cwd: projectPath, 
       encoding: 'utf-8',

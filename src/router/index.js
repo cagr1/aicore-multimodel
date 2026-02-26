@@ -153,7 +153,6 @@ function analyzeContext(intent, metadata) {
     /better/i,
     /faster/i,
     /modern/i,
-    /better/i,
     /update/i,
     /upgrade/i,
     /enhance/i,

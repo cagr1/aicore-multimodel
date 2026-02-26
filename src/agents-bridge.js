@@ -171,8 +171,8 @@ export function matchProject(metadata, projectPath) {
   const scannedStack = new Set();
   if (scannedFramework) scannedStack.add(normalizeStack(scannedFramework));
   if (scannedLang) scannedStack.add(normalizeStack(scannedLang));
-  if (metadata.capabilities) {
-    for (const cap of Object.keys(metadata.capabilities)) {
+  if (metadata.capabilities && Array.isArray(metadata.capabilities)) {
+    for (const cap of metadata.capabilities) {
       scannedStack.add(normalizeStack(cap));
     }
   }
@@ -269,8 +269,8 @@ function inferStack(metadata) {
   }
   
   // Add detected capabilities as technologies
-  if (capabilities) {
-    stack.push(...Object.keys(capabilities));
+  if (capabilities && Array.isArray(capabilities)) {
+    stack.push(...capabilities);
   }
   
   return stack.length > 0 ? stack : ['Unknown'];
@@ -473,8 +473,10 @@ export function updateProjectPhase(projectPath, projectId) {
   const currentPhase = currentState.current_phase;
   const detectedPhase = phaseResult.phase;
   
-  // Only update if phase has changed significantly
-  if (currentPhase !== detectedPhase) {
+  // Only update if phase has changed AND the project has enough files to be meaningful
+  // Very low file counts (< 3) suggest the projectPath is not the real project directory
+  const hasEnoughFiles = phaseResult.signals?.fileCount >= 3;
+  if (currentPhase !== detectedPhase && hasEnoughFiles) {
     console.error(`[AgentsBridge] Phase change detected for ${projectId}: ${currentPhase} → ${detectedPhase} (confidence: ${phaseResult.confidence})`);
     
     // Update state
@@ -528,13 +530,13 @@ const DOMAIN_FOLDERS = {
  */
 const AICORE_TO_AGENTS_MAP = {
   // ai-core agent → relevant agents/ .md files by domain
-  backend: ['backend/node-api.md', 'backend/laravel-api.md', 'backend/dotnet-data-sqlserver.md'],
-  frontend: ['frontend/react-hooks.md', 'frontend/vue-composition.md', 'frontend/animations.md'],
-  security: ['security/api-security.md'],
+  backend: ['backend/node-api.md', 'backend/laravel-api.md', 'backend/dotnet-data-sqlserver.md', 'database/postgresql-expert.md', 'database/sqlserver-expert.md'],
+  frontend: ['frontend/react-hooks.md', 'frontend/vue-composition.md', 'frontend/animations.md', 'frontend/animations-expert.md', 'frontend/design-awwwards.md', 'frontend/ux-accessibility.md', 'frontend/performance-expert.md'],
+  security: ['security/api-security.md', 'security/security-expert.md'],
   test: ['testing/backend-test.md'],
-  seo: [],  // No specific .md yet
-  code: ['architecture/global-architect.md'],
-  api: ['backend/node-api.md', 'backend/laravel-api.md']
+  seo: ['frontend/performance-expert.md'],  // SEO and performance are related
+  code: ['architecture/global-architect.md', 'devops/cloud-expert.md'],
+  api: ['backend/node-api.md', 'backend/laravel-api.md', 'security/security-expert.md']
 };
 
 /**
@@ -604,8 +606,11 @@ function shouldIncludeMd(mdFile, projectStack) {
     'vue-composition.md': ['vue', 'nuxt'],
     'prisma-queries.md': ['prisma'],
     'postgres-schema.md': ['postgresql'],
+    'postgresql-expert.md': ['postgresql', 'prisma'],
+    'sqlserver-expert.md': ['sqlserver', 'dotnet', 'efcore'],
     'migrations-dotnet-prisma.md': ['dotnet', 'prisma'],
-    'animations.md': ['gsap', 'threejs']
+    'animations.md': ['gsap', 'threejs'],
+    'animations-expert.md': ['gsap', 'threejs']
   };
 
   const fileName = path.basename(mdLower);
@@ -840,5 +845,8 @@ export default {
   getAgentRegistry,
   matchProject,
   getAgentsContext,
+  getOrCreateProjectContext,
+  updateProjectPhase,
+  autoRegisterProject,
   updateProjectTask
 };

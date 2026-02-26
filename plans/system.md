@@ -2,13 +2,19 @@
 
 ## What is ai-core?
 
-ai-core is a **multi-agent orchestration system** that integrates with Kilo.ai to assist in software development. It analyzes projects and generates change proposals without requiring installation in each project.
+ai-core is a **multi-agent orchestration system** with intelligent LLM routing, knowledge base integration, and automatic context management. It analyzes projects and generates change proposals without requiring installation in each project.
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Kilo     │────▶│  ai-core    │────▶│  Project    │
-│   (Chat)   │     │  (Agents)   │     │  Analysis   │
+│   User      │────▶│  ai-core    │────▶│  Project    │
+│   (Chat)    │     │  (Router)   │     │  Analysis   │
 └─────────────┘     └─────────────┘     └─────────────┘
+       │                   │
+       │                   ▼
+       │           ┌─────────────┐
+       │           │  Knowledge  │
+       └──────────▶│    Base     │
+                   └─────────────┘
 ```
 
 ## Core Flow
@@ -16,88 +22,208 @@ ai-core is a **multi-agent orchestration system** that integrates with Kilo.ai t
 ### 1. Project Scanning
 The system first scans the project to detect:
 - **Language**: JavaScript, TypeScript, Python, Go, Rust, PHP, C#
-- **Framework**: React, Vue, Express, Django, FastAPI, etc.
-- **Project Type**: Landing page, SaaS, API
+- **Framework**: React, Vue, Express, Django, FastAPI, Next.js, Laravel, .NET
+- **Project Type**: Landing page, SaaS, API, ERP
+- **Phase**: Discovery, Build, Ship
 
-### 2. Routing
-Based on user intent, the router selects the appropriate agent:
-- `frontend` - UI/Components
-- `backend` - APIs/Routes
-- `seo` - SEO optimization
-- `code` - Code quality
-- `security` - Security/JWT
-- `test` - Testing
+### 2. Multi-Model Routing
+Based on task complexity, the system selects the appropriate LLM:
 
-### 3. Confidence Scoring
-Each route decision gets a score (0-1):
+| Provider | Use Case |
+|----------|----------|
+| **MiniMax (Light)** | SEO, frontend simple, tests, styles |
+| **Claude/GPT (Heavy)** | Architecture, security, database schema |
 
-| Score | Action |
-|-------|--------|
-| ≥ 0.7 | Auto-apply candidate |
-| 0.4-0.7 | Fallback to LLM |
-| < 0.4 | Request clarification |
+Routing factors:
+- Agent type (architecture → heavy, seo → light)
+- Keywords in prompt
+- Project phase (discovery → light, build → mixed)
+- Complexity estimate
 
-### 4. Agent Execution
-Selected agents analyze the project and generate **proposals**.
+### 3. Knowledge Base Integration
+- 20+ domain-specific `.md` files in `agents/`
+- Auto-loaded based on detected project type
+- Provides context for agents
 
-### 5. Quality Assurance Pipeline
-Before applying changes:
+### 4. Auto-Project Registration
+New projects are automatically registered with:
+- Inferred type (Landing, SaaS, API, ERP)
+- Inferred stack
+- Initial phase detection
+- Stored in `agents/orchestrator/projects/`
+
+### 5. Phase Tracking
+Automatic phase detection based on code signals:
+
+| Phase | Signals |
+|-------|---------|
+| **Discovery** | <20 files, no CI/CD, no tests |
+| **Build** | 20-200 files, CI/CD optional |
+| **Ship** | >50 files, CI/CD, tests, deployment |
+
+---
+
+## Architecture
 
 ```
-Proposal → Secret Scan → Test Validation → Apply/Rollback
-              │              │                 │
-              ▼              ▼                 ▼
-         [Block if      [Run tests      [Success or
-          secrets]       in sandbox]     automatic
-                                         rollback]
+┌─────────────────────────────────────────────────────────────┐
+│                        CLI (index.js)                        │
+├─────────────┬─────────────┬─────────────┬─────────────────┤
+│  --prompt   │ --interactive│   --init    │     --mcp      │
+│  --project  │ --project    │             │     --export   │
+│             │              │             │     --import   │
+└──────┬──────┴──────┬──────┴──────┬──────┴────────┬────────┘
+       │              │              │               │
+       v              v              v               v
+┌─────────────────────────────────────────────────────────────┐
+│                    MCP Server (mcp-server)                  │
+├─────────────────────────────────────────────────────────────┤
+│  scan()  │  route()  │  orchestrate()  │  generateProposals │
+└──────┬──────┴────┬────┴───────┬───────┴────────┬──────────┘
+       │           │            │                │
+       v           v            v                v
+┌─────────────────────────────────────────────────────────────┐
+│                     Scanner + Router                         │
+├─────────────────────────────────────────────────────────────┤
+│  scan()  │  matchProject()  │  selectModel()  │ detectPhase│
+└──────┬──────┴────┬─────────┴──────┬─────────┴──────┬───────┘
+       │           │                 │                │
+       v           v                 v                v
+┌─────────────────────────────────────────────────────────────┐
+│                    Agents Bridge                            │
+├─────────────────────────────────────────────────────────────┤
+│  getOrCreateProjectContext()  │  updateProjectPhase()      │
+│  autoRegisterProject()        │  getAgentsContext()        │
+└───────────────┬─────────────────────────────────┬──────────┘
+               │                                 │
+               v                                 v
+┌─────────────────────────┐    ┌─────────────────────────────┐
+│   Knowledge Base       │    │      LLM Providers          │
+│   agents/             │    │  (minimax/openai/anthropic)│
+│   - stacks/           │    │  - selectModel()           │
+│   - backend/         │    │  - Dual routing            │
+│   - frontend/        │    │                            │
+│   - classifier/      │    │                            │
+└─────────────────────────┘    └─────────────────────────────┘
 ```
+
+---
 
 ## Key Features
 
-### Atomic Patch Manager
-Applies changes atomically with automatic rollback:
-1. Create snapshot
-2. Apply changes
-3. Run tests in sandbox
-4. Execute checks (lint → build → test)
-5. If anything fails → rollback
+### 1. Multi-Model Routing
+- **Light Provider**: MiniMax for simple tasks (SEO, frontend simple, tests, styles)
+- **Heavy Provider**: Claude/GPT for complex tasks (architecture, security, database)
+- Automatic selection based on:
+  - Agent type
+  - Keywords in prompt
+  - Project phase
+  - Complexity estimate
 
-### Secret Scanner
-Scans all proposals for sensitive data:
-- AWS/GCP keys
-- Database URLs
-- JWT tokens
-- SSH keys
-- API keys
-- High-entropy strings
+### 2. Auto-Project Registration
+- New projects detected automatically
+- Type and stack inferred from code
+- Stored in `agents/orchestrator/projects/_index.json`
+- Each project has `state.json` with phase, stack, priorities
 
-Blocked if security score < 0.3 or critical findings detected.
+### 3. Phase Tracking
+- **Discovery**: <20 files, no CI/CD
+- **Build**: 20-200 files, CI/CD optional
+- **Ship**: >50 files, CI/CD, tests, deployment
+- Phase auto-updates in `state.json`
 
-### Test Validation
-- Agents can attach tests to proposals
-- Tests run in isolated sandbox
-- Auto-generate smoke tests if none provided
-- Rollback on test failure
+### 4. Knowledge Base
+- 20+ domain-specific Markdown files
+- Stacks: citasbot-stack, landing-stack, cisepro-stack
+- Agents: backend, frontend, seo, security, test, code
+- Auto-loaded based on project type
 
-### Memory & Retention
-JSONL-based storage with:
-- **TTL**: Auto-delete records older than 30 days
-- **Redaction**: PII is anonymized before storage
-- **Logs**: All purge/rotation events logged
+### 5. CLI Modes
+```bash
+# Quick analyze
+node index.js --project ./proj --prompt "task"
+
+# Interactive chat
+node index.js --interactive --project ./proj
+
+# MCP Server
+node index.js --mcp
+
+# Init wizard
+node index.js --init
+
+# Export/Import
+node index.js --export
+node index.js --import ./export.json
+```
+
+---
 
 ## File Structure
 
 ```
 src/
-├── scanner/          # Language/framework detection
-├── router/          # Agent selection + scoring
+├── scanner/           # Language/framework detection + phase detection
+├── router/           # Agent selection + scoring + model routing
 ├── orchestrator/    # Coordinates agents
 ├── agents/          # 6 specialized agents
 ├── proposals/       # Change proposals
 ├── file-engine/     # Atomic apply, tests, secrets
 ├── memory/          # JSONL storage, TTL, redaction
-└── mcp-server/     # CLI interface
+├── llm/             # LLM providers + model router
+├── cli/             # Interactive CLI + portability
+├── profiles/        # Project profiles
+├── config/          # Configuration
+└── mcp-server/     # MCP interface
 ```
+
+---
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# ===========================================
+# LIGHT PROVIDER (tareas simples)
+# ===========================================
+LLM_PROVIDER_LIGHT=minimax
+LLM_API_KEY_LIGHT=tu-minimax-api-key
+LLM_MODEL_LIGHT=MiniMax-Text-01
+
+# ===========================================
+# HEAVY PROVIDER (tareas complejas)
+# ===========================================
+LLM_PROVIDER_HEAVY=anthropic
+LLM_API_KEY_HEAVY=tu-anthropic-api-key
+LLM_MODEL_HEAVY=claude-sonnet-4-20250514
+```
+
+### Config File (config/default.json)
+
+```json
+{
+  "modelRouting": {
+    "light": {
+      "provider": "minimax",
+      "model": "MiniMax-Text-01"
+    },
+    "heavy": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-20250514"
+    },
+    "rules": [
+      { "agent": "seo", "provider": "light" },
+      { "agent": "test", "provider": "light" },
+      { "agent": "frontend", "keywords": ["simple", "css", "style"], "provider": "light" },
+      { "agent": "security", "provider": "heavy" },
+      { "agent": "backend", "keywords": ["schema", "database"], "provider": "heavy" }
+    ]
+  }
+}
+```
+
+---
 
 ## Usage Examples
 
@@ -105,32 +231,29 @@ src/
 # Basic analysis
 node index.js --project ./my-project --prompt "optimize SEO"
 
-# With proposals
-node index.js --project ./my-project --prompt "add 3D hero section"
+# Frontend task
+node index.js --project ./my-project --prompt "add 3D hero section with GSAP"
 
-# Force specific agent
-node index.js --project ./my-project --prompt "add tests" --force-agent test
+# Backend task
+node index.js --project ./my-project --prompt "create database schema for users"
 
-# Apply changes
-node index.js --project ./my-project --apply <proposal-id>
+# Security review
+node index.js --project ./my-project --prompt "implement JWT authentication"
 
-# View status
-node index.js --project ./my-project --status
+# Interactive mode
+node index.js --interactive --project ./my-project
+
+# Initialize new project
+node index.js --init
 ```
 
-## Configuration
-
-Environment variables:
-- `AI_CORE_TTL_DAYS` - Memory retention (default: 30)
-- `AI_CORE_MEMORY_DIR` - Storage location
-- `LLM_PROVIDER` - LLM backend (minimax/openai/anthropic)
-- `LLM_API_KEY` - API key for LLM
+---
 
 ## Testing
 
 ```bash
 npm test
-# ✓ 46 tests passing
+# ✓ Tests passing
 ```
 
 Tests cover:
@@ -144,15 +267,11 @@ Tests cover:
 
 ## Telemetry & Metrics
 
-The server exposes Prometheus-compatible metrics at `/metrics` endpoint:
-
 ```bash
 # Start metrics server
 node src/metrics-server.js
-# or
-npm run start:metrics
 
-# Metrics available at: http://localhost:9091/metrics
+# Metrics at: http://localhost:9091/metrics
 ```
 
 ### Available Metrics
@@ -168,108 +287,17 @@ npm run start:metrics
 | `ai_core_scan_errors_total` | Counter | Scan errors |
 | `ai_core_memory_entries` | Gauge | Memory entries count |
 
-### Grafana Dashboard
-
-Import the dashboard via Grafana UI or API:
-
-```bash
-# Generate dashboard JSON
-node scripts/dashboard-seed.cjs
-
-# Copy the JSON and import in Grafana: Dashboards → Import
-```
-
-Prometheus scraping configuration:
-```yaml
-- job_name: "ai-core-mcp"
-  static_configs:
-    - targets: ["localhost:9091"]
-```
-
 ---
 
 ## A/B Testing
 
-Compare ai-core deterministic routing vs LLM fallback to evaluate performance:
-
 ```bash
-# Run all 100 prompts
+# Run all prompts
 node scripts/ab-test.cjs
 
-# Run limited number
+# Limited run
 node scripts/ab-test.cjs --limit 10
-
-# Custom threshold
-node scripts/ab-test.cjs --threshold 0.5
 ```
-
-### Results
-
-The script generates:
-- `tests/ab_results.csv` - Detailed results per prompt
-- `report.csv` - KPIs summary
-
-### KPIs Generated
-
-| Metric | Description |
-|--------|-------------|
-| `total_prompts` | Total prompts tested |
-| `llm_fallback_count` | Prompts that needed LLM |
-| `ai_core_only_count` | Prompts handled by ai-core |
-| `apply_possible_count` | Prompts with high confidence |
-| `agent_accuracy` | % of correct agent selection |
-| `avg_time_ms` | Average processing time |
-
----
-
-## Kilo API Integration
-
-Patch validation via Kilo's LLM:
-
-```bash
-# Configure Kilo API
-export KILO_API_URL=http://localhost:3000/api
-export KILO_API_KEY=your-key
-```
-
-The API expects:
-```json
-{
-  "context": "repo snapshot (relevant diffs)",
-  "prompt": "Valida y mejora este patch. Constraints: no secrets, pasar lint/build/tests, no cambios de arquitectura mayor."
-}
-```
-
-Expected response:
-```json
-{
-  "confidence": 0.95,
-  "patches": ["git-diff"],
-  "tests": [{"file": "test.js", "content": "..."}],
-  "notes": "2-líneas"
-}
-```
-
----
-
-## AB Configuration
-
-Configurable thresholds in `config/ab_config.json`:
-
-```json
-{
-  "autoApply": 0.75,
-  "llmFallback": 0.4,
-  "maxAutoApplyPerDay": 10,
-  "forceApplyAllowed": false
-}
-```
-
-### Auto-Apply Limits
-
-- Daily auto-apply limit tracked via telemetry
-- Alert emitted when limit exceeded
-- Metrics: `ai_core_auto_apply_attempt_total`, `ai_core_auto_apply_alert_total`
 
 ---
 
@@ -286,5 +314,45 @@ Configurable thresholds in `config/ab_config.json`:
 | Test validation | ✅ Complete |
 | Prometheus metrics | ✅ Complete |
 | A/B testing | ✅ Complete |
-| Kilo API integration | ✅ Complete |
-| PR template | ✅ Complete |
+| **Multi-Model Routing** | ✅ Complete |
+| **Auto-Project Registration** | ✅ Complete |
+| **Phase Tracking** | ✅ Complete |
+| **Interactive CLI** | ✅ Complete |
+| **Portability (Export/Import)** | ✅ Complete |
+
+---
+
+## FAQ
+
+### What happens if I switch from Opus 4.6 to a free model?
+The system will continue to work because:
+1. **Knowledge base is independent** - `.md` files are always loaded regardless of LLM
+2. **Routing is deterministic** - Keywords and agent selection work without LLM
+3. **Model routing is configurable** - You can set both providers in `.env`
+
+The main difference is the **quality of generated proposals**. A free model may:
+- Generate less accurate code
+- Have worse context understanding
+- Produce simpler/more basic solutions
+
+### What happens when starting a new project?
+1. Scanner detects language/framework
+2. Project is auto-registered in `_index.json`
+3. Phase is detected (discovery/build/ship)
+4. Knowledge base is loaded based on inferred type
+5. You're ready to use prompts
+
+### Does the system require an API key?
+**No**. The system works in "fallback mode" without API keys:
+- Proposals based on predefined patterns
+- Agents activated by keywords
+- No LLM-generated code
+
+With API keys:
+- Full LLM-powered proposals
+- Better context understanding
+- More accurate suggestions
+
+---
+
+*ai-core v2.0 - Complete*

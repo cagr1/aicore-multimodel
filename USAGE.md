@@ -1,22 +1,58 @@
 # ai-core - Guía de Uso
 
-Sistema de orquestación multi-agente con integración LLM para asistencia en desarrollo de software.
+Sistema de orquestación multi-agente con integración LLM, knowledge base, y contexto automático.
 
 ---
 
-## Requisitos
-
-- Node.js 18+
-- API Key de un proveedor LLM (opcional)
-
----
-
-## Instalación
+## Inicio Rápido
 
 ```bash
-git clone <repo-url>
+# 1. Clonar e instalar
+git clone https://github.com/cagr1/aicore-multimodel.git
 cd ai-core
 npm install
+
+# 2. Configurar API Keys (opcional)
+cp .env.example .env
+# Edita .env con tus API keys
+
+# 3. Ejecutar análisis
+node index.js --project ./tu-proyecto --prompt "tu prompt"
+```
+
+---
+
+## Modos de Uso
+
+### 1. Análisis Rápido (Quick Analyze)
+```bash
+node index.js --project ./tu-proyecto --prompt "agregar meta tags SEO"
+```
+
+Muestra:
+- Proyecto detectado y fase
+- Stack y tipo
+- Contexto de knowledge base cargado
+- Reglas aplicadas
+- Proposals generadas
+
+### 2. Modo Interactivo (Chat)
+```bash
+node index.js --interactive --project ./tu-proyecto
+```
+
+Comandos:
+- Escribe tu prompt directamente
+- `/help` - Mostrar ayuda
+- `/project <path>` - Cambiar proyecto
+- `/status` - Estado de sesión
+- `/config` - Configuración LLM
+- `/clear` - Limpiar pantalla
+- `/exit` - Salir
+
+### 3. Servidor MCP
+```bash
+node index.js --mcp
 ```
 
 ---
@@ -25,132 +61,96 @@ npm install
 
 ### Variables de Entorno
 
-Crea un archivo `.env` o configura las variables:
-
 ```bash
-# Proveedor: minimax, openai, anthropic
-export LLM_PROVIDER=minimax
+# ===========================================
+# LIGHT PROVIDER (tareas simples)
+# ===========================================
+LLM_PROVIDER_LIGHT=minimax
+LLM_API_KEY_LIGHT=tu-minimax-api-key
+LLM_MODEL_LIGHT=MiniMax-Text-01
 
-# Tu API Key
-export LLM_API_KEY=tu-api-key
-
-# Modelo a usar
-export LLM_MODEL=MiniMax-Text-01
-
-# Opcional: temperatura y tokens
-export LLM_TEMPERATURE=0.7
-export LLM_MAX_TOKENS=2048
+# ===========================================
+# HEAVY PROVIDER (tareas complejas)
+# ===========================================
+LLM_PROVIDER_HEAVY=anthropic
+LLM_API_KEY_HEAVY=tu-anthropic-api-key
+LLM_MODEL_HEAVY=claude-sonnet-4-20250514
 ```
 
-### Proveedores Soportados
-
-| Proveedor | Modelo por defecto |
-|----------|------------------|
-| MiniMax | MiniMax-Text-01 |
-| OpenAI | gpt-4 |
-| Anthropic | claude-3-sonnet |
-
----
-
-## Uso Básico
-
-### Análisis Simple
-
+### Wizard de Inicialización
 ```bash
-# Análisis sin LLM (determinista)
-node index.js --project ./mi-proyecto --prompt "optimizar SEO"
+node index.js --init
 ```
 
-### Análisis con Propuestas
+Te guía paso a paso para configurar API keys y registrar proyectos.
 
+### Exportar/Importar Configuración
 ```bash
-# Análisis + propuestas de código
-node index.js --project ./mi-proyecto --prompt "hero animation 3d"
-```
+# Exportar
+node index.js --export
 
-### Preview de Propuestas
-
-```bash
-# Ver cambios sin aplicar
-node index.js --project ./mi-proyecto --preview <proposal-id>
-```
-
-### Aplicar Cambios
-
-```bash
-# Aplicar propuesta con backup
-node index.js --project ./mi-proyecto --apply <proposal-id>
-
-# Aplicar sin backup
-node index.js --project ./mi-proyecto --apply <proposal-id> --no-backup
-```
-
-### Estados y Configuración
-
-```bash
-# Ver estado de memoria
-node index.js --project ./mi-proyecto --status
-
-# Ver configuración
-node index.js --config
+# Importar
+node index.js --import ./ai-core-export.json
 ```
 
 ---
 
-## Flujo de Trabajo Completo
+## Proyectos
 
+Los proyectos se registran automáticamente en `agents/orchestrator/projects/_index.json`. 
+Cada proyecto tiene un `state.json` con:
+- Fase actual (discovery/build/ship)
+- Stack tecnológico
+- Prioridades
+- Métricas
+
+### Proyectos Registrados
+- **CitasBot SaaS** - Next.js, Prisma, PostgreSQL (Fase: build)
+- **Cisepro ERP** - Vue 3, .NET 8, EF Core
+- **Landings** - Vue 3, GSAP, Three.js
+
+---
+
+## Características
+
+### Knowledge Base
+- 20+ archivos `.md` con reglas por dominio
+- Agentes específicos por stack (citasbot-stack, landing-stack, etc.)
+- Contexto automático basado en el proyecto detectado
+
+### Multi-Model Routing
+- **Light (MiniMax)**: SEO, frontend simple, tests, styles
+- **Heavy (Claude/GPT)**: Arquitectura, security, database schema, integraciones
+
+### Phase Tracking
+Detección automática de fase del proyecto:
+- **Discovery**: <20 archivos, sin CI/CD
+- **Build**: 20-200 archivos, CI/CD opcional
+- **Ship**: >50 archivos, CI/CD, tests, deployment
+
+---
+
+## Proyectos
+
+Perfiles detectados automáticamente:
+
+| Perfil | Agentes |
+|--------|---------|
+| Landing | frontend, seo |
+| SaaS | frontend, backend, security |
+| API | backend, security |
+| Ecommerce | frontend, backend, security |
+
+---
+
+## Telemetría
+
+Métricas Prometheus disponibles:
 ```bash
-# 1. Analiza tu proyecto
-node index.js --project ./mi-proyecto --prompt "quiero agregar un login con JWT"
+node src/metrics-server.js
 
-# 2. El sistema:
-#    - Detecta el tipo de proyecto (landing, saas, api...)
-#    - Selecciona los agentes correctos
-#    - Genera propuestas de código
-#    - Muestra los diffs
-
-# 3. Aplica los cambios
-#    - Preview primero
-#    - Apply para confirmar
-#    - Backup automático
-```
-
----
-
-## Estructura del Proyecto Escaneado
-
-```
-mi-proyecto/
-├── src/
-├── package.json
-└── ... (otros archivos)
-```
-
----
-
-## Perfiles de Proyecto
-
-El sistema detecta automáticamente:
-
-| Perfil | Descripción |
-|--------|-------------|
-| Landing | Página de aterrizaje |
-| SaaS | Aplicación web completa |
-| Ecommerce | Tienda online |
-| API | Backend REST |
-| Blog | Blog / CMS |
-| Library | Paquete npm |
-| CLI | Herramienta CLI |
-
----
-
-## Integración con MCP
-
-Para usar con Kilo.ai u otros clientes MCP:
-
-```bash
-# Iniciar servidor MCP
-node index.js --mcp
+# Ver métricas
+curl http://localhost:9091/metrics
 ```
 
 ---
@@ -176,7 +176,6 @@ node index.js --project ./mi-proyecto --prompt "mejorar SEO técnica"
 
 # Testing
 node index.js --project ./mi-proyecto --prompt "generar tests unitarios"
-node index.js --project ./mi-proyecto --prompt "mejorar coverage"
 ```
 
 ---
@@ -186,78 +185,61 @@ node index.js --project ./mi-proyecto --prompt "mejorar coverage"
 Si no configuras API Key, el sistema funciona en modo determinista:
 - Proposals basadas en patrones predefinidos
 - Agentes activados por keywords
+- Sin generación de código con LLM
 
 ---
 
 ## Solución de Problemas
 
-### "LLM not configured"
-→ Configura `LLM_PROVIDER` y `LLM_API_KEY`
-
-### "Proposal not found"
-→ Ejecuta `--prompt` primero para generar propuestas
-
-### Scanner no detecta el proyecto
-→ Asegúrate que el path sea correcto y tenga archivos
+| Error | Solución |
+|-------|----------|
+| "LLM not configured" | Configura `LLM_API_KEY_LIGHT` en .env |
+| "Proposal not found" | Ejecuta `--prompt` primero para generar propuestas |
+| Scanner no detecta | Verifica que el path tenga archivos |
 
 ---
 
-## Telemetría y Métricas
+## Arquitectura
 
-El servidor incluye un endpoint de métricas compatible con Prometheus:
-
-```bash
-# Iniciar servidor con métricas
-node src/metrics-server.js
-# o
-npm run start:metrics
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        CLI (index.js)                        │
+├─────────────┬─────────────┬─────────────┬─────────────────┤
+│  --prompt   │ --interactive│   --init    │     --mcp      │
+└──────┬──────┴──────┬──────┴──────┬──────┴────────┬────────┘
+       │              │              │               │
+       v              v              v               v
+┌─────────────────────────────────────────────────────────────┐
+│                    MCP Server (mcp-server)                  │
+├─────────────────────────────────────────────────────────────┤
+│  scan()  │  route()  │  orchestrate()  │  generateProposals │
+└──────┬──────┴────┬────┴───────┬───────┴────────┬──────────┘
+       │           │            │                │
+       v           v            v                v
+┌─────────────────────────────────────────────────────────────┐
+│                     Scanner + Router                         │
+├─────────────────────────────────────────────────────────────┤
+│  scan()  │  matchProject()  │  selectModel()  │ detectPhase│
+└──────┬──────┴────┬─────────┴──────┬─────────┴──────┬───────┘
+       │           │                 │                │
+       v           v                 v                v
+┌─────────────────────────────────────────────────────────────┐
+│                    Agents Bridge                            │
+├─────────────────────────────────────────────────────────────┤
+│  getOrCreateProjectContext()  │  updateProjectPhase()      │
+│  autoRegisterProject()        │  getAgentsContext()        │
+└───────────────┬─────────────────────────────────┬──────────┘
+               │                                 │
+               v                                 v
+┌─────────────────────────┐    ┌─────────────────────────────┐
+│   Knowledge Base       │    │      LLM Providers          │
+│   agents/             │    │  (minimax/openai/anthropic)│
+│   - stacks/           │    │  - selectModel()           │
+│   - backend/         │    │  - Dual routing            │
+│   - frontend/        │    │                            │
+└─────────────────────────┘    └─────────────────────────────┘
 ```
 
-Las métricas estarán disponibles en: `http://localhost:9091/metrics`
-
-### Métricas Disponibles
-
-| Métrica | Tipo | Descripción |
-|---------|------|-------------|
-| `ai_core_proposals_analyzed_total` | Counter | Propuestas analizadas |
-| `ai_core_proposals_generated_total` | Counter | Propuestas generadas por agente |
-| `ai_core_apply_result_total` | Counter | Resultados de aplicación por estado |
-| `ai_core_analyze_latency_seconds` | Histogram | Latencia de análisis |
-| `ai_core_apply_latency_seconds` | Histogram | Latencia de aplicación |
-| `ai_core_secrets_detected_total` | Counter | Secretos detectados |
-| `ai_core_scan_errors_total` | Counter | Errores de escaneo |
-| `ai_core_memory_entries` | Gauge | Entradas en memoria |
-
-### Dashboard Grafana
-
-Para importar el dashboard:
-
-```bash
-# Generar configuración
-node scripts/dashboard-seed.cjs
-
-# Importar en Grafana (UI)
-# 1. Ve a Dashboards → Import
-# 2. Copia el JSON generado
-```
-
 ---
 
-## Próximos Pasos
-
-- [ ] Probar con diferentes tipos de proyectos
-- [ ] Configurar el proveedor LLM preferido
-- [ ] Integrar con Kilo.ai via MCP
-- [ ] Configurar Grafana para métricas
-
----
-
-## Próximos Pasos
-
-- [ ] Probar con diferentes tipos de proyectos
-- [ ] Configurar el proveedor LLM preferido
-- [ ] Integrar con Kilo.ai via MCP
-
----
-
-*ai-core v1.0.0 - 100% Completado*
+*ai-core v2.0 - 100% Completado*

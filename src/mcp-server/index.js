@@ -5,7 +5,7 @@ import { orchestrate, applyFallbackRules } from '../orchestrator/index.js';
 import { memory } from '../memory/index.js';
 import { fileEngine } from '../file-engine/index.js';
 import { generateProposals, validateProposal } from '../proposals/index.js';
-import { initLLM, isConfigured, chatWithSystem, loadConfig } from '../llm/index.js';
+import { initLLM, isConfigured, chatWithSystem, loadConfig, getConfig } from '../llm/index.js';
 import { getSystemPrompt, getUserPrompt, validateBudget, TOKEN_BUDGET, OUTPUT_FORMAT } from '../llm/prompts.js';
 import { configure as configureAgentsBridge } from '../agents-bridge.js';
 import telemetry from '../telemetry/index.js';
@@ -578,7 +578,9 @@ export async function runCLI() {
   // Try to load LLM config from environment
   const llmConfig = loadConfig();
   if (llmConfig) {
-    console.error('[CLI] LLM loaded:', llmConfig.provider, '-', llmConfig.defaultModel);
+    const activeProvider = llmConfig.light?.provider || llmConfig.heavy?.provider || 'unknown';
+    const activeModel = llmConfig.light?.defaultModel || llmConfig.heavy?.defaultModel || 'unknown';
+    console.error('[CLI] LLM loaded:', activeProvider, '-', activeModel, llmConfig.dualMode ? '(dual mode)' : '(single mode)');
   }
   
   const args = process.argv.slice(2);

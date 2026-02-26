@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "exportedAt": "2026-02-26T17:28:35.990Z",
+  "exportedAt": "2026-02-26T17:55:05.223Z",
   "config": {
     "env": "# ai-core Environment Variables\r\n# Configura tu API key aquí:\r\n\r\n# LLM Provider (minimax, openai, anthropic, kilo)\r\nLLM_PROVIDER=kilo\r\n\r\n# Tu API Key de Kilo.ai\r\nLLM_API_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbnYiOiJwcm9kdWN0aW9uIiwia2lsbFVzZXJJZCI6IjEwMzExYmVlLWFhYzktNDYyMy1hNzA1LThjYWYxNjA1YjEyNCIsImFwaVRva2VuUGVwcGVyIjpudWxsLCJ2ZXJzaW9uIjozLCJpYXQiOjE3NzE2MjE3ODYsImV4cCI6MTkyOTMwMTc4Nn0.SAOL_4n11NHe01mILISPoRhhX2JCyqbqft_1CRFMjmk\r\n\r\n# Modelo\r\nLLM_MODEL=MiniMax-M2.5\r\n"
   },

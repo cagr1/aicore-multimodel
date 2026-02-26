@@ -109,11 +109,21 @@ node scripts/ab-test.cjs --threshold 0.5
 
 ### Variables de Entorno
 ```bash
-LLM_PROVIDER=minimax    # minimax, openai, anthropic
-LLM_API_KEY=tu-key
-LLM_MODEL=MiniMax-Text-01
+# Light Provider (tareas simples: SEO, frontend, tests)
+LLM_PROVIDER_LIGHT=minimax
+LLM_API_KEY_LIGHT=tu-key
+LLM_MODEL_LIGHT=MiniMax-Text-01
+
+# Heavy Provider (tareas complejas: arquitectura, security)
+# LLM_PROVIDER_HEAVY=anthropic
+# LLM_API_KEY_HEAVY=tu-key
+# LLM_MODEL_HEAVY=claude-sonnet-4-20250514
+
+# Legacy (single provider)
+# LLM_PROVIDER=minimax
+# LLM_API_KEY=tu-key
+
 AI_CORE_TTL_DAYS=30
-KILO_API_URL=http://localhost:3000/api
 ```
 
 ### Thresholds (config/ab_config.json)
@@ -158,4 +168,4 @@ node -e "import('./src/scanner/index.js').then(m => console.log(m.scanProject('.
 | `src/mcp-server/index.js` | Servidor MCP |
 | `src/telemetry/index.js` | Métricas |
 | `src/file-engine/atomic.js` | Atomic apply |
-| `src/secret-scanner.js` | Detección de secrets |
+| `src/file-engine/secret-scanner.js` | Detección de secrets |

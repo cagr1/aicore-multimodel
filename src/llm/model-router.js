@@ -249,11 +249,7 @@ export function resolveProvider(selection) {
   
   // If single provider mode, use whatever is available
   if (status.singleProviderMode) {
-    return selection.tier === 'heavy' 
-      ? getProviderConfig('light')  // Heavy requested but light only available
-      : getProviderConfig('heavy')  // Light requested but heavy only available;
-      || getProviderConfig('light') // Final fallback
-      || getProviderConfig('heavy'); // Last resort
+    return getProviderConfig('light') || getProviderConfig('heavy');
   }
   
   // If no providers configured at all

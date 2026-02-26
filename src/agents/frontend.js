@@ -8,27 +8,107 @@ import path from 'path';
 const SUPPORTED_LANGUAGES = ['javascript', 'typescript'];
 
 /**
+ * Safely read directory contents
+ * @param {string} dirPath - Directory path to read
+ * @returns {string[]} Array of filenames, empty on error
+ */
+function safeReaddir(dirPath) {
+  try {
+    if (!fs.existsSync(dirPath)) {
+      return [];
+    }
+    return fs.readdirSync(dirPath);
+  } catch (error) {
+    if (error.code === 'EACCES') {
+      console.warn(`[Frontend Agent] Permission denied: ${dirPath}`);
+    } else if (error.code === 'ENOENT') {
+      console.warn(`[Frontend Agent] Directory not found: ${dirPath}`);
+    } else {
+      console.warn(`[Frontend Agent] Error reading directory: ${error.message}`);
+    }
+    return [];
+  }
+}
+
+/**
+ * Safely read file content
+ * @param {string} filePath - File path to read
+ * @returns {string|null} File content or null on error
+ */
+function safeReadFile(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.warn(`[Frontend Agent] Error reading file: ${filePath}`);
+    }
+    return null;
+  }
+}
+
+/**
+ * Validate agent context
+ * @param {Object} context - Agent context
+ * @returns {Object} Validation result { valid: boolean, error?: string }
+ */
+function validateContext(context) {
+  if (!context) {
+    return { valid: false, error: 'Context is required' };
+  }
+  
+  if (!context.projectPath) {
+    return { valid: false, error: 'projectPath is required' };
+  }
+  
+  if (typeof context.projectPath !== 'string') {
+    return { valid: false, error: 'projectPath must be a string' };
+  }
+  
+  if (!fs.existsSync(context.projectPath)) {
+    return { valid: false, error: `Project path does not exist: ${context.projectPath}` };
+  }
+  
+  return { valid: true };
+}
+
+/**
  * Analyze frontend project
  */
 export async function run(context) {
+  // Validate context
+  const validation = validateContext(context);
+  if (!validation.valid) {
+    return {
+      success: false,
+      diagnostics: [{
+        severity: 'error',
+        message: `Invalid context: ${validation.error}`,
+        file: '',
+        line: 0
+      }],
+      changes: [],
+      summary: `Error: ${validation.error}`
+    };
+  }
+
   const { projectPath, metadata, userIntent } = context;
-  const { language, framework, signals } = metadata;
+  const { language, framework, signals } = metadata || {};
   
   const diagnostics = [];
   const changes = [];
   
   // Check language support
-  if (!SUPPORTED_LANGUAGES.includes(language)) {
+  if (!language || !SUPPORTED_LANGUAGES.includes(language)) {
     return {
       success: false,
       diagnostics: [{
         severity: 'warning',
-        message: `Frontend agent does not support language: ${language}`,
+        message: `Frontend agent does not support language: ${language || 'unknown'}`,
         file: '',
         line: 0
       }],
       changes: [],
-      summary: `Skipped: language ${language} not supported by Frontend agent`
+      summary: `Skipped: language ${language || 'unknown'} not supported by Frontend agent`
     };
   }
   
@@ -55,7 +135,7 @@ export async function run(context) {
  */
 function analyzeFramework(projectPath, framework, signals) {
   const diagnostics = [];
-  const files = fs.readdirSync(projectPath);
+  const files = safeReaddir(projectPath);
   
   if (framework === 'react' || signals.includes('react')) {
     // Check React best practices
@@ -119,7 +199,7 @@ function analyzeFramework(projectPath, framework, signals) {
  */
 function analyzeCommonFrontend(projectPath) {
   const diagnostics = [];
-  const files = fs.readdirSync(projectPath);
+  const files = safeReaddir(projectPath);
   
   // Check for public folder (assets)
   const hasPublic = files.includes('public') || files.includes('static');
