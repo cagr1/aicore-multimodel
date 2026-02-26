@@ -531,7 +531,7 @@ const DOMAIN_FOLDERS = {
 const AICORE_TO_AGENTS_MAP = {
   // ai-core agent → relevant agents/ .md files by domain
   backend: ['backend/node-api.md', 'backend/laravel-api.md', 'backend/dotnet-data-sqlserver.md', 'database/postgresql-expert.md', 'database/sqlserver-expert.md'],
-  frontend: ['frontend/react-hooks.md', 'frontend/vue-composition.md', 'frontend/animations.md', 'frontend/animations-expert.md', 'frontend/design-awwwards.md', 'frontend/ux-accessibility.md', 'frontend/performance-expert.md'],
+  frontend: ['frontend/react-hooks.md', 'frontend/vue-composition.md', 'frontend/animations.md', 'frontend/animations-expert.md', 'frontend/design-awwwards.md', 'frontend/ux-accessibility.md', 'frontend/performance-expert.md', 'frontend/design-taste.md'],
   security: ['security/api-security.md', 'security/security-expert.md'],
   test: ['testing/backend-test.md'],
   seo: ['frontend/performance-expert.md'],  // SEO and performance are related
