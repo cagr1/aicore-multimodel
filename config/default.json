@@ -7,5 +7,11 @@
     "enabled": true,
     "events": ["route_decision", "agent_execution", "proposal_generated"]
   },
-  "agents_knowledge_base": "./agents"
+  "agents_knowledge_base": "./agents",
+  "model_routing": {
+    "default_tier": "light",
+    "heavy_threshold": 0.6,
+    "light_threshold": 0.3,
+    "complexity_estimate_weight": 0.3
+  }
 }

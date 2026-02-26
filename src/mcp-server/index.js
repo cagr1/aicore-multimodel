@@ -60,12 +60,14 @@ function emitTelemetry(eventName, data) {
 /**
  * Generate proposals using LLM (when available)
  * OPTIMIZED: Minimal tokens, compressed metadata
+ * Uses model routing to select heavy or light provider
  * @param {string} projectPath
  * @param {string} userIntent
  * @param {Object} metadata
  * @param {string} [agentRules] - Optional agent rules from agents-bridge
+ * @param {Object} [routingParams] - Routing parameters for model selection
  */
-async function generateLLMProposals(projectPath, userIntent, metadata, agentRules) {
+async function generateLLMProposals(projectPath, userIntent, metadata, agentRules, routingParams) {
   if (!isConfigured()) {
     return null; // Fall back to deterministic
   }
@@ -80,9 +82,18 @@ async function generateLLMProposals(projectPath, userIntent, metadata, agentRule
     console.error('[MCP] Token budget exceeded:', budget);
   }
   
+  // Build routing parameters for model selection
+  const routing = routingParams ? {
+    userIntent,
+    agentIds: routingParams.agentIds || [],
+    complexityEstimate: routingParams.complexityEstimate || 0.3,
+    projectPhase: routingParams.projectPhase || 'build'
+  } : null;
+  
   try {
     const response = await chatWithSystem(systemPrompt, userPrompt, {
-      maxTokens: TOKEN_BUDGET.MAX_RESPONSE_TOKENS
+      maxTokens: TOKEN_BUDGET.MAX_RESPONSE_TOKENS,
+      routing // Pass routing to enable model selection
     });
     
     if (!response.success) {
@@ -124,7 +135,8 @@ async function generateLLMProposals(projectPath, userIntent, metadata, agentRule
       originalContent: '',
       risks: ['LLM-generated code - review before applying'],
       llm: true,
-      tokenUsage: budget.total
+      tokenUsage: budget.total,
+      modelTier: routing ? (routing.complexityEstimate > 0.6 ? 'heavy' : 'light') : 'light'
     }));
   } catch (e) {
     console.error('[MCP] LLM parsing error:', e.message);
@@ -241,11 +253,18 @@ export async function analyze({ projectPath, userIntent, generateProposals: doGe
     if (doGenerateProposals) {
       console.error('[MCP] Generating proposals...');
       
+      // Build routing parameters for model selection
+      const routingParams = {
+        agentIds: plan.map(a => a.agentId),
+        complexityEstimate: 0.3, // Default - could be enhanced with scoring
+        projectPhase: agentsContext?.projectState?.current_phase || 'build'
+      };
+      
       // Try LLM first if configured — pass agent rules for context-aware generation
       if (isConfigured()) {
         console.error('[MCP] Using LLM for intelligent proposals...');
         const agentRules = agentsContext?.context || '';
-        const llmProposals = await generateLLMProposals(projectPath, userIntent, metadata, agentRules);
+        const llmProposals = await generateLLMProposals(projectPath, userIntent, metadata, agentRules, routingParams);
         if (llmProposals && llmProposals.length > 0) {
           proposals = llmProposals;
         }
