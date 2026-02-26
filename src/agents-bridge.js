@@ -531,13 +531,35 @@ const DOMAIN_FOLDERS = {
 const AICORE_TO_AGENTS_MAP = {
   // ai-core agent → relevant agents/ .md files by domain
   backend: ['backend/node-api.md', 'backend/laravel-api.md', 'backend/dotnet-data-sqlserver.md', 'database/postgresql-expert.md', 'database/sqlserver-expert.md'],
-  frontend: ['frontend/react-hooks.md', 'frontend/vue-composition.md', 'frontend/animations.md', 'frontend/animations-expert.md', 'frontend/design-awwwards.md', 'frontend/ux-accessibility.md', 'frontend/performance-expert.md', 'frontend/design-taste.md'],
+  frontend: ['frontend/react-hooks.md', 'frontend/vue-composition.md', 'frontend/animations.md', 'frontend/animations-expert.md', 'frontend/design-taste.md', 'frontend/ux-accessibility.md', 'frontend/performance-expert.md'],
   security: ['security/api-security.md', 'security/security-expert.md'],
   test: ['testing/backend-test.md'],
   seo: ['frontend/performance-expert.md'],  // SEO and performance are related
   code: ['architecture/global-architect.md', 'devops/cloud-expert.md'],
   api: ['backend/node-api.md', 'backend/laravel-api.md', 'security/security-expert.md']
 };
+
+/**
+ * Design rules by project type
+ * design-taste = premium (landing, saas)
+ * design-awwwards = basic (default)
+ */
+const DESIGN_RULES_BY_TYPE = {
+  landing: 'design-taste.md',    // Premium landing pages
+  saas: 'design-taste.md',      // SaaS dashboards
+  ecommerce: 'design-taste.md',  // E-commerce
+  default: 'design-awwwards.md'  // Basic design rules
+};
+
+/**
+ * Get design rule file based on project type
+ * @param {string} projectType - Project type (landing, saas, api, etc.)
+ * @returns {string} Design rule file name
+ */
+function getDesignRuleByType(projectType) {
+  const normalizedType = (projectType || 'default').toLowerCase();
+  return DESIGN_RULES_BY_TYPE[normalizedType] || DESIGN_RULES_BY_TYPE.default;
+}
 
 /**
  * Determine which .md files are relevant based on the project stack
@@ -549,6 +571,10 @@ function resolveRelevantMdFiles(project, agentIds) {
   const files = new Set();
   const registry = getAgentRegistry();
   const projectStack = (project.stack || []).map(s => normalizeStack(s));
+  const projectType = project.type || 'default';
+  
+  // Get the design rule for this project type
+  const designRule = getDesignRuleByType(projectType);
 
   // 1. Add stack-specific .md if project matches a known stack
   if (registry && registry.agents) {
@@ -575,6 +601,14 @@ function resolveRelevantMdFiles(project, agentIds) {
     for (const mdFile of mdFiles) {
       // Filter by stack relevance
       if (shouldIncludeMd(mdFile, projectStack)) {
+        // Handle design rules: only include the one matching project type
+        if (mdFile.includes('design-')) {
+          if (mdFile.includes(designRule)) {
+            files.add(mdFile);
+          }
+          // Skip other design rules
+          continue;
+        }
         files.add(mdFile);
       }
     }
