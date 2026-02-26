@@ -129,6 +129,21 @@
       "priority": 8,
       "type": "Portfolio",
       "folder": "portfolio"
+    },
+    {
+      "id": "printx",
+      "name": "Printx",
+      "description": "Unknown project",
+      "stack": [
+        "unknown"
+      ],
+      "phase": "discovery",
+      "health": "active",
+      "priority": 9,
+      "type": "landing",
+      "folder": "printx",
+      "autoRegistered": true,
+      "createdAt": "2026-02-26T22:45:18.273Z"
     }
   ]
 }

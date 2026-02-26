@@ -1,0 +1,21 @@
+{
+  "project_id": "printx",
+  "project_name": "Printx",
+  "description": "Unknown project",
+  "current_phase": "discovery",
+  "health": "active",
+  "priority": 9,
+  "last_updated": "2026-02-26T22:45:18.300Z",
+  "stack": [
+    "unknown"
+  ],
+  "url": "",
+  "metrics": {
+    "tasks_completed": 0,
+    "tasks_pending": 0,
+    "agents_used": []
+  },
+  "current_blockers": [],
+  "top_priority": "Initial setup",
+  "autoCreated": true
+}

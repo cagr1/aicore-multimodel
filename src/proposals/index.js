@@ -10,6 +10,43 @@ import { scanProposals } from '../file-engine/secret-scanner.js';
  * (Without LLM - deterministic approach)
  */
 const PROPOSAL_PATTERNS = {
+  // Project initialization patterns
+  'new-landing': {
+    agent: 'frontend',
+    keywords: ['landing page', 'landing', 'catalogo', 'catálogo', 'sitio web', 'sitio sin backend', 'cta whatsapp', 'whatsapp business'],
+    generate: (projectPath, metadata) => {
+      return generateLandingPageProposal(projectPath, metadata);
+    }
+  },
+  'new-saas': {
+    agent: 'frontend',
+    keywords: ['saas', 'multi-usuario', 'multiusuario', 'dashboard', 'subscription', 'software como servicio'],
+    generate: (projectPath, metadata) => {
+      return generateSaaSProposal(projectPath, metadata);
+    }
+  },
+  'new-ecommerce': {
+    agent: 'frontend',
+    keywords: ['ecommerce', 'tienda', 'carrito', 'checkout', 'pagos', 'shopping cart'],
+    generate: (projectPath, metadata) => {
+      return generateEcommerceProposal(projectPath, metadata);
+    }
+  },
+  'new-api': {
+    agent: 'backend',
+    keywords: ['api rest', 'rest api', 'backend only', 'solo backend', 'microservicio', 'graphql'],
+    generate: (projectPath, metadata) => {
+      return generateAPIProposal(projectPath, metadata);
+    }
+  },
+  'new-erp': {
+    agent: 'backend',
+    keywords: ['erp', 'sistema empresarial', 'inventario', 'facturación'],
+    generate: (projectPath, metadata) => {
+      return generateERPProposal(projectPath, metadata);
+    }
+  },
+  
   // Frontend patterns
   'hero-3d': {
     agent: 'frontend',
@@ -541,3 +578,180 @@ export default {
   applyProposal,
   validateProposal
 };
+
+// ============================================
+// New Project Proposal Generators
+// ============================================
+
+function generateLandingPageProposal(projectPath, metadata) {
+  return {
+    id: 'landing-page-' + Date.now(),
+    agent: 'frontend',
+    description: 'Crear landing page completa con catálogo, filtros y CTA WhatsApp',
+    change: {
+      type: 'create',
+      file: 'SPEC.md',
+      content: `# SPEC.md - Landing Page + Catálogo
+
+## Proyecto: Landing Page para Empresa de Empaques
+
+### Stack
+- Next.js 14 + TailwindCSS + Framer Motion
+- Sin backend - datos estáticos en TypeScript
+
+### Páginas
+- / (Home) - Hero + categorías + CTA
+- /catalogo - Grid de productos con filtros
+- /catalogo/[category] - Filtrado por categoría
+- /contacto - WhatsApp directo
+
+### Requerimientos
+1. Filtros por categoría (Cajas, Bases, Toppers, Guaguas)
+2. Buscador por nombre/dimensión
+3. CTA WhatsApp sticky en mobile
+4. Design System: Negro + Dorado (#D4A843)
+5. Tipografía: Geist
+
+### Fase 1
+1. Setup Next.js
+2. Data types + products.ts
+3. Layout + Design tokens
+4. Hero section
+5. ProductCard + Grid
+6. Filtros
+`
+    },
+    originalContent: '',
+    risks: ['Requiere contenido real del cliente']
+  };
+}
+
+function generateSaaSProposal(projectPath, metadata) {
+  return {
+    id: 'saas-project-' + Date.now(),
+    agent: 'frontend',
+    description: 'Crear proyecto SaaS con autenticación y dashboard',
+    change: {
+      type: 'create',
+      file: 'SPEC.md',
+      content: `# SPEC.md - SaaS Project
+
+## Proyecto: SaaS Application
+
+### Stack
+- Next.js 14 + Auth (NextAuth/Clerk)
+- Base de datos (Prisma/PostgreSQL)
+- Dashboard con gráficos
+
+### Features
+- Autenticación de usuarios
+- Dashboard personalizado
+- CRUD de recursos
+- Subscripciones (Stripe)
+
+### Fases
+1. Setup + Auth
+2. Dashboard base
+3. Features core
+4. Pagos
+`
+    },
+    originalContent: '',
+    risks: ['Requiere configuración de pagos']
+  };
+}
+
+function generateEcommerceProposal(projectPath, metadata) {
+  return {
+    id: 'ecommerce-project-' + Date.now(),
+    agent: 'frontend',
+    description: 'Crear tienda online con carrito y pagos',
+    change: {
+      type: 'create',
+      file: 'SPEC.md',
+      content: `# SPEC.md - Ecommerce Project
+
+## Proyecto: Tienda Online
+
+### Stack
+- Next.js 14 + Carrito + Pagos
+- Stripe/MercadoPago
+- Inventory management
+
+### Features
+- Catálogo de productos
+- Carrito de compras
+- Checkout
+- Panel admin
+`
+    },
+    originalContent: '',
+    risks: ['Requiere integración de pagos']
+  };
+}
+
+function generateAPIProposal(projectPath, metadata) {
+  return {
+    id: 'api-project-' + Date.now(),
+    agent: 'backend',
+    description: 'Crear API REST con Node.js/Express',
+    change: {
+      type: 'create',
+      file: 'SPEC.md',
+      content: `# SPEC.md - API REST Project
+
+## Proyecto: REST API
+
+### Stack
+- Node.js + Express/Fastify
+- PostgreSQL + Prisma
+- JWT Auth
+
+### Endpoints
+- /auth - Registro/Login
+- /resources - CRUD completo
+- /admin - Panel admin
+
+### Documentación
+- Swagger/OpenAPI
+`
+    },
+    originalContent: '',
+    risks: []
+  };
+}
+
+function generateERPProposal(projectPath, metadata) {
+  return {
+    id: 'erp-project-' + Date.now(),
+    agent: 'backend',
+    description: 'Crear sistema ERP empresarial',
+    change: {
+      type: 'create',
+      file: 'SPEC.md',
+      content: `# SPEC.md - ERP Project
+
+## Proyecto: Sistema ERP
+
+### Módulos
+- Inventario
+- Ventas
+- Facturación
+- RRHH (opcional)
+
+### Stack
+- Frontend: React/Next.js
+- Backend: Node.js/NestJS
+- Base de datos: PostgreSQL
+
+### Fases
+1. Inventario
+2. Ventas
+3. Facturación
+4. Reportes
+`
+    },
+    originalContent: '',
+    risks: ['Proyecto complejo - varias fases']
+  };
+}

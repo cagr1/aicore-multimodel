@@ -30,6 +30,39 @@ const KEYWORD_TRIGGERS = {
 };
 
 /**
+ * Project type keywords for prompt-based detection (new projects)
+ */
+const PROJECT_TYPE_KEYWORDS = {
+  landing: ['landing', 'landing page', 'pagina de aterrizaje', 'one page', 'brochure', 'catalogo', 'catálogo', 'sitio web simple', 'sitio web básico', 'sitio sin backend', 'sin backend', 'cta whatsapp', 'whatsapp business'],
+  saas: ['saas', 'multi-usuario', 'multiusuario', 'dashboard', 'subscription', 'tenant', 'multi tenant', ' SaaS ', 'software como servicio'],
+  ecommerce: ['ecommerce', 'tienda', 'carrito', 'checkout', 'pago', 'pagos', 'carrito de compras', 'shopping cart', 'woo', 'shopify', 'mercadopago', 'stripe'],
+  api: ['api rest', 'rest api', 'backend only', 'solo backend', 'microservicio', 'microservice', 'graphql', 'crud'],
+  erp: ['erp', 'enterprise resource', 'sistema empresarial', 'inventario', 'facturacion', 'facturación', 'nomina', 'rrh'],
+  blog: ['blog', 'wordpress', 'cms', 'content management', 'articulos', 'artículos', 'noticias']
+};
+
+/**
+ * Detect project type from user prompt (for new/empty projects)
+ * @param {string} userIntent - The user's prompt describing the project
+ * @returns {string|null} Detected project type or null if no match
+ */
+function detectProjectTypeFromPrompt(userIntent) {
+  if (!userIntent || userIntent.length < 10) return null;
+  
+  const lowerIntent = userIntent.toLowerCase();
+  
+  for (const [projectType, keywords] of Object.entries(PROJECT_TYPE_KEYWORDS)) {
+    for (const keyword of keywords) {
+      if (lowerIntent.includes(keyword.toLowerCase())) {
+        return projectType;
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
  * Project type to default agents mapping
  */
 const PROJECT_TYPE_AGENTS = {
@@ -200,13 +233,25 @@ function getDefaultAgents(metadata) {
  */
 export async function route(input) {
   const { metadata, userIntent, projectPath } = input;
-  const { language, framework, capabilities, projectType } = metadata;
+  let { language, framework, capabilities, projectType } = metadata;
+  
+  // Step 0: If projectType is unknown, try to detect from prompt (for new projects)
+  if ((!projectType || projectType === 'unknown') && userIntent) {
+    const detectedType = detectProjectTypeFromPrompt(userIntent);
+    if (detectedType) {
+      projectType = detectedType;
+      console.log(`[Router] Project type detected from prompt: ${projectType}`);
+    }
+  }
+  
+  // Update metadata with detected project type
+  const enhancedMetadata = { ...metadata, projectType };
   
   const selectedAgents = new Set();
   const reasons = [];
   
   // Step 1: Try LLM-based detection first (if configured)
-  const llmAgents = await detectIntentWithLLM(userIntent, metadata);
+  const llmAgents = await detectIntentWithLLM(userIntent, enhancedMetadata);
   if (llmAgents && llmAgents.length > 0) {
     for (const agentId of llmAgents) {
       if (agents[agentId]) {
@@ -230,7 +275,7 @@ export async function route(input) {
   
   // Step 3: Context analysis for implicit intents
   if (selectedAgents.size === 0) {
-    const context = analyzeContext(userIntent, metadata);
+    const context = analyzeContext(userIntent, enhancedMetadata);
     if (context.hasIntent && context.impliedAgents.length > 0) {
       for (const agentId of context.impliedAgents) {
         if (agents[agentId]) {
@@ -243,7 +288,7 @@ export async function route(input) {
   
   // Step 4: Default agents based on project type/framework
   if (selectedAgents.size === 0) {
-    const defaults = getDefaultAgents(metadata);
+    const defaults = getDefaultAgents(enhancedMetadata);
     if (defaults.length > 0) {
       for (const agentId of defaults) {
         if (agents[agentId]) {
@@ -286,8 +331,9 @@ export async function route(input) {
   
   try {
     // Use getOrCreateProjectContext to auto-register new projects
+    // Use enhancedMetadata which has the detected projectType from prompt
     agentsContext = getOrCreateProjectContext({
-      metadata,
+      metadata: enhancedMetadata,
       selectedAgentIds: agentIds,
       projectPath: projectPath || '',
       userIntent

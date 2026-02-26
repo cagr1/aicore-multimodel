@@ -21,8 +21,14 @@ for (let i = 0; i < args.length; i++) {
   if (args[i] === '--project' && args[i + 1]) {
     projectPath = args[i + 1];
   }
-  if (args[i] === '--prompt' && args[i + 1]) {
-    userPrompt = args[i + 1];
+  if (args[i] === '--prompt') {
+    // Collect all remaining args as the prompt (until another --flag)
+    const promptParts = [];
+    for (let j = i + 1; j < args.length; j++) {
+      if (args[j].startsWith('--')) break;
+      promptParts.push(args[j]);
+    }
+    userPrompt = promptParts.join(' ');
   }
 }
 

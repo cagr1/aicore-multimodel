@@ -415,6 +415,23 @@ export function getOrCreateProjectContext(options) {
       }
     }
     
+    // If metadata has a detected projectType that differs from stored, update it
+    if (metadata.projectType && metadata.projectType !== 'unknown' && 
+        matchedProject.type !== metadata.projectType) {
+      try {
+        const indexPath = path.join(process.cwd(), 'agents/orchestrator/projects/_index.json');
+        const indexData = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+        const projectIdx = indexData.projects.findIndex(p => p.id === matchedProject.id);
+        if (projectIdx !== -1) {
+          indexData.projects[projectIdx].type = metadata.projectType;
+          fs.writeFileSync(indexPath, JSON.stringify(indexData, null, 2), 'utf-8');
+          console.log(`[AgentsBridge] Updated project type: ${matchedProject.id} -> ${metadata.projectType}`);
+        }
+      } catch (e) {
+        // Non-fatal
+      }
+    }
+    
     return {
       ...getAgentsContext(options),
       autoRegistered: false
