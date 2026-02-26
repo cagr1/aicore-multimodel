@@ -120,4 +120,4 @@ Cuando ai-core escanea un proyecto que NO está en `_index.json`, se registra au
 | Fase 2: Auto-Registro | ✅ Completada | Commit 99afd67 |
 | Fase 3: Phase Tracking | ✅ Completada | Commit 516af3e |
 | Fase 4: CLI Interactivo | ✅ Completada | Commit 2fd3321 |
-| Fase 5: Portabilidad | ⏳ Pendiente | - |
+| Fase 5: Portabilidad | ✅ Completada | Commit 70b3a4c |
