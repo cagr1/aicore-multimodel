@@ -221,6 +221,225 @@ export function matchProject(metadata, projectPath) {
   return bestMatch;
 }
 
+// ─── Auto-Registration ──────────────────────────────────────────────────
+
+/**
+ * Infer project type from metadata
+ * @param {Object} metadata - Scanner metadata
+ * @returns {string}
+ */
+function inferProjectType(metadata) {
+  const { projectType, framework, language, capabilities } = metadata;
+  
+  // If already detected, use it
+  if (projectType && projectType !== 'unknown') {
+    return projectType;
+  }
+  
+  // Infer from capabilities
+  if (capabilities?.includes('api')) return 'API';
+  if (capabilities?.includes('ml')) return 'ML';
+  if (capabilities?.includes('cli')) return 'CLI';
+  
+  // Infer from language/framework
+  if (language === 'javascript' || language === 'typescript') {
+    if (!capabilities?.includes('api')) return 'Landing';
+    return 'SaaS';
+  }
+  
+  return 'Unknown';
+}
+
+/**
+ * Infer stack from metadata
+ * @param {Object} metadata - Scanner metadata
+ * @returns {string[]}
+ */
+function inferStack(metadata) {
+  const { framework, language, capabilities } = metadata;
+  const stack = [];
+  
+  if (framework) {
+    stack.push(framework);
+  }
+  
+  if (language) {
+    stack.push(language);
+  }
+  
+  // Add detected capabilities as technologies
+  if (capabilities) {
+    stack.push(...Object.keys(capabilities));
+  }
+  
+  return stack.length > 0 ? stack : ['Unknown'];
+}
+
+/**
+ * Get project ID from path
+ * @param {string} projectPath - Project path
+ * @returns {string}
+ */
+function getProjectIdFromPath(projectPath) {
+  // Extract folder name from path
+  const normalized = projectPath.replace(/\\/g, '/');
+  const parts = normalized.split('/');
+  const folderName = parts[parts.length - 1] || 'new-project';
+  
+  // Sanitize: lowercase, replace spaces with dashes
+  return folderName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
+
+/**
+ * Auto-register a new project in _index.json
+ * @param {Object} metadata - Scanner metadata
+ * @param {string} projectPath - Project path
+ * @returns {Object|null} The newly created project entry
+ */
+export function autoRegisterProject(metadata, projectPath) {
+  const index = getProjectsIndex();
+  if (!index) {
+    console.error('[AgentsBridge] Cannot auto-register: _index.json not found');
+    return null;
+  }
+  
+  const projectId = getProjectIdFromPath(projectPath);
+  
+  // Check if already exists (avoid duplicates)
+  const existing = index.projects?.find(p => p.id === projectId || p.folder === projectId);
+  if (existing) {
+    console.error('[AgentsBridge] Project already exists:', projectId);
+    return existing;
+  }
+  
+  const projectType = inferProjectType(metadata);
+  const stack = inferStack(metadata);
+  
+  const newProject = {
+    id: projectId,
+    name: projectId.charAt(0).toUpperCase() + projectId.slice(1).replace(/-/g, ' '),
+    description: `${projectType} project`,
+    stack: stack,
+    phase: 'discovery',
+    health: 'active',
+    priority: (index.projects?.length || 0) + 1,
+    type: projectType,
+    folder: projectId,
+    autoRegistered: true,
+    createdAt: new Date().toISOString()
+  };
+  
+  // Add to index
+  if (!index.projects) {
+    index.projects = [];
+  }
+  index.projects.push(newProject);
+  
+  // Save updated index
+  const indexPath = path.join(agentsBasePath, 'orchestrator', 'projects', '_index.json');
+  try {
+    fs.writeFileSync(indexPath, JSON.stringify(index, null, 2), 'utf-8');
+    console.error('[AgentsBridge] Auto-registered project:', projectId, '- Type:', projectType, '- Stack:', stack.join(', '));
+    
+    // Also create state.json for the new project
+    createProjectState(newProject);
+    
+    return newProject;
+  } catch (e) {
+    console.error('[AgentsBridge] Failed to auto-register project:', e.message);
+    return null;
+  }
+}
+
+/**
+ * Create state.json for a new project
+ * @param {Object} project - Project entry from _index.json
+ */
+function createProjectState(project) {
+  const state = {
+    project_id: project.id,
+    project_name: project.name,
+    description: project.description || '',
+    current_phase: project.phase || 'discovery',
+    health: project.health || 'active',
+    priority: project.priority || 99,
+    last_updated: new Date().toISOString(),
+    stack: project.stack || [],
+    url: project.url || '',
+    metrics: {
+      tasks_completed: 0,
+      tasks_pending: 0,
+      agents_used: []
+    },
+    current_blockers: [],
+    top_priority: 'Initial setup',
+    autoCreated: true
+  };
+  
+  const statePath = path.join(agentsBasePath, 'orchestrator', 'projects', project.id, 'state.json');
+  
+  try {
+    // Ensure directory exists
+    const dir = path.dirname(statePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    
+    fs.writeFileSync(statePath, JSON.stringify(state, null, 2), 'utf-8');
+    console.error('[AgentsBridge] Created state.json for:', project.id);
+  } catch (e) {
+    console.error('[AgentsBridge] Failed to create state.json:', e.message);
+  }
+}
+
+/**
+ * Ensure project is registered before getting context
+ * This is the main entry point that handles auto-registration
+ * @param {Object} options - Same as getAgentsContext
+ * @returns {Object} Context with project info
+ */
+export function getOrCreateProjectContext(options) {
+  const { metadata, selectedAgentIds, projectPath, userIntent } = options;
+  
+  // Try to match existing project
+  const matchedProject = matchProject(metadata, projectPath);
+  
+  if (matchedProject) {
+    return {
+      ...getAgentsContext(options),
+      autoRegistered: false
+    };
+  }
+  
+  // Auto-register if not found
+  if (projectPath) {
+    console.error('[AgentsBridge] Project not found, auto-registering...');
+    const newProject = autoRegisterProject(metadata, projectPath);
+    
+    if (newProject) {
+      // Now get context for the newly registered project
+      return {
+        ...getAgentsContext({
+          ...options,
+          projectPath: newProject.id // Use new ID for matching
+        }),
+        autoRegistered: true,
+        newProject
+      };
+    }
+  }
+  
+  // Fallback: return no context
+  return {
+    matched: false,
+    projectId: null,
+    context: '',
+    mdFiles: [],
+    projectState: null,
+    autoRegistered: false
+  };
+}
+
 // ─── Domain Rules Loading ────────────────────────────────────────────
 
 /**

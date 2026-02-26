@@ -1,7 +1,7 @@
 // Router - Intelligent agent selection with context analysis
 import { agents } from '../agents/index.js';
 import { isConfigured, chatWithSystem } from '../llm/index.js';
-import { getAgentsContext } from '../agents-bridge.js';
+import { getAgentsContext, getOrCreateProjectContext } from '../agents-bridge.js';
 
 /**
  * Keywords that trigger specific agents from user intent
@@ -286,12 +286,17 @@ export async function route(input) {
   let agentsContext = null;
   
   try {
-    agentsContext = getAgentsContext({
+    // Use getOrCreateProjectContext to auto-register new projects
+    agentsContext = getOrCreateProjectContext({
       metadata,
       selectedAgentIds: agentIds,
       projectPath: projectPath || '',
       userIntent
     });
+    
+    if (agentsContext.autoRegistered) {
+      console.error(`[Router] Auto-registered new project: ${agentsContext.newProject?.id || 'unknown'}`);
+    }
     
     if (agentsContext.matched) {
       console.error(`[Router] Agents bridge matched project: ${agentsContext.projectName} (${agentsContext.projectId})`);
