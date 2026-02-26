@@ -1,0 +1,6 @@
+{
+  "autoApply": 0.75,
+  "llmFallback": 0.4,
+  "maxAutoApplyPerDay": 10,
+  "forceApplyAllowed": false
+}

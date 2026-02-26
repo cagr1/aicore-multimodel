@@ -6,5 +6,6 @@
   "telemetry": {
     "enabled": true,
     "events": ["route_decision", "agent_execution", "proposal_generated"]
-  }
+  },
+  "agents_knowledge_base": "./agents"
 }

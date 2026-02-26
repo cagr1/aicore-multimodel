@@ -1,6 +1,7 @@
 // Router - Intelligent agent selection with context analysis
 import { agents } from '../agents/index.js';
 import { isConfigured, chatWithSystem } from '../llm/index.js';
+import { getAgentsContext } from '../agents-bridge.js';
 
 /**
  * Keywords that trigger specific agents from user intent
@@ -199,7 +200,7 @@ function getDefaultAgents(metadata) {
  * Determine which agents to run based on metadata and user intent
  */
 export async function route(input) {
-  const { metadata, userIntent } = input;
+  const { metadata, userIntent, projectPath } = input;
   const { language, framework, capabilities, projectType } = metadata;
   
   const selectedAgents = new Set();
@@ -280,10 +281,31 @@ export async function route(input) {
   // Sort by priority
   agentPlan.sort((a, b) => a.priority - b.priority);
   
+  // Step 5: Load agents/ knowledge base context via bridge
+  const agentIds = agentPlan.map(a => a.agentId);
+  let agentsContext = null;
+  
+  try {
+    agentsContext = getAgentsContext({
+      metadata,
+      selectedAgentIds: agentIds,
+      projectPath: projectPath || '',
+      userIntent
+    });
+    
+    if (agentsContext.matched) {
+      console.error(`[Router] Agents bridge matched project: ${agentsContext.projectName} (${agentsContext.projectId})`);
+      console.error(`[Router] Loaded ${agentsContext.mdFiles.length} rule files: ${agentsContext.mdFiles.join(', ')}`);
+    }
+  } catch (e) {
+    console.error('[Router] Agents bridge error (non-fatal):', e.message);
+  }
+  
   return {
     agents: agentPlan,
     reason: reasons.join('; ') || 'Default agents selected',
-    detectionMethod: llmAgents ? 'llm' : (selectedAgents.size > 0 ? 'keyword' : 'default')
+    detectionMethod: llmAgents ? 'llm' : (selectedAgents.size > 0 ? 'keyword' : 'default'),
+    agentsContext: agentsContext || { matched: false, context: '', mdFiles: [] }
   };
 }
 

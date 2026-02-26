@@ -1,0 +1,17 @@
+metric,value
+total_prompts,3
+llm_fallback_count,0
+ai_core_only_count,3
+apply_possible_count,3
+errors_count,0
+llm_fallback_rate,0.00%
+apply_possible_rate,100.00%
+error_rate,0.00%
+avg_time_ms,0.00
+total_tokens_llm,0
+avg_tokens_llm,0.00
+agent_seo,2
+agent_frontend,1
+agent_backend,1
+route_high,3
+agent_accuracy,66.67%

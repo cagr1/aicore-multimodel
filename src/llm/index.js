@@ -2,6 +2,7 @@
 import { minimaxProvider } from './providers/minimax.js';
 import { openaiProvider } from './providers/openai.js';
 import { anthropicProvider } from './providers/anthropic.js';
+import { kiloProvider } from './providers/kilo.js';
 
 /**
  * Available providers
@@ -9,7 +10,8 @@ import { anthropicProvider } from './providers/anthropic.js';
 const PROVIDERS = {
   minimax: minimaxProvider,
   openai: openaiProvider,
-  anthropic: anthropicProvider
+  anthropic: anthropicProvider,
+  kilo: kiloProvider
 };
 
 /**

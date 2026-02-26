@@ -72,10 +72,14 @@ function encodeMetadata(metadata) {
 /**
  * Generate optimized system prompt
  * @param {Object} metadata 
+ * @param {string} [agentRules] - Optional agent rules/context from agents-bridge
  * @returns {string}
  */
-export function getSystemPrompt(metadata) {
+export function getSystemPrompt(metadata, agentRules) {
   const tech = encodeMetadata(metadata);
+  if (agentRules && agentRules.trim().length > 0) {
+    return `You are ${ROLES.GENERATOR}. Tech=${tech}. Rules: ${agentRules}. Output JSON only.`;
+  }
   return `You are ${ROLES.GENERATOR}. Tech=${tech}. Output JSON only.`;
 }
 
@@ -91,11 +95,14 @@ export function getUserPrompt(userIntent, metadata) {
 
 /**
  * Token budget configuration
+ * Extended to support agent rules context injection
  */
 export const TOKEN_BUDGET = {
-  MAX_PROMPT_TOKENS: 100,
+  MAX_PROMPT_TOKENS: 2000,
   MAX_RESPONSE_TOKENS: 500,
-  MAX_SYSTEM_PROMPT: 30,
+  MAX_SYSTEM_PROMPT: 1500,
+  MAX_SYSTEM_PROMPT_BASE: 30,
+  MAX_AGENT_RULES: 1200,
   MAX_USER_PROMPT: 50
 };
 

@@ -7,7 +7,27 @@ import { fileEngine } from '../file-engine/index.js';
 import { generateProposals, validateProposal } from '../proposals/index.js';
 import { initLLM, isConfigured, chatWithSystem, loadConfig } from '../llm/index.js';
 import { getSystemPrompt, getUserPrompt, validateBudget, TOKEN_BUDGET, OUTPUT_FORMAT } from '../llm/prompts.js';
+import { configure as configureAgentsBridge } from '../agents-bridge.js';
 import telemetry from '../telemetry/index.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Initialize agents-bridge with config
+try {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const configPath = path.join(__dirname, '../../config/default.json');
+  if (fs.existsSync(configPath)) {
+    const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    if (cfg.agents_knowledge_base) {
+      configureAgentsBridge(cfg.agents_knowledge_base);
+      console.error('[MCP] Agents knowledge base configured:', cfg.agents_knowledge_base);
+    }
+  }
+} catch (e) {
+  console.error('[MCP] Warning: Could not configure agents-bridge:', e.message);
+}
 
 /**
  * In-memory store for pending proposals
@@ -40,14 +60,18 @@ function emitTelemetry(eventName, data) {
 /**
  * Generate proposals using LLM (when available)
  * OPTIMIZED: Minimal tokens, compressed metadata
+ * @param {string} projectPath
+ * @param {string} userIntent
+ * @param {Object} metadata
+ * @param {string} [agentRules] - Optional agent rules from agents-bridge
  */
-async function generateLLMProposals(projectPath, userIntent, metadata) {
+async function generateLLMProposals(projectPath, userIntent, metadata, agentRules) {
   if (!isConfigured()) {
     return null; // Fall back to deterministic
   }
   
-  // OPTIMIZED: Compact prompts
-  const systemPrompt = getSystemPrompt(metadata);
+  // OPTIMIZED: Compact prompts — inject agent rules if available
+  const systemPrompt = getSystemPrompt(metadata, agentRules || '');
   const userPrompt = getUserPrompt(userIntent, metadata);
   
   // Token budget validation
@@ -157,11 +181,13 @@ export async function analyze({ projectPath, userIntent, generateProposals: doGe
     }
     
     // Use router if no forced agent
+    let agentsContext = null;
     if (!forceAgent || !isValidAgent(forceAgent)) {
       console.error('[MCP] Routing agents for intent:', userIntent);
-      const routeResult = await route({ metadata, userIntent });
+      const routeResult = await route({ metadata, userIntent, projectPath });
       plan = routeResult.agents;
       reason = routeResult.reason;
+      agentsContext = routeResult.agentsContext || null;
       
       // Apply fallback rules and scoring
       const scoringResult = applyFallbackRules({
@@ -193,13 +219,17 @@ export async function analyze({ projectPath, userIntent, generateProposals: doGe
       telemetry.incAgentsActivated(agent.agentId);
     }
     
-    // Step 3: Orchestrate execution
+    // Step 3: Orchestrate execution (pass agents context from bridge)
     console.error('[MCP] Executing agents...');
+    if (agentsContext?.matched) {
+      console.error(`[MCP] Agents bridge: project=${agentsContext.projectId}, rules=${agentsContext.mdFiles?.length || 0} files`);
+    }
     const { results, summary } = await orchestrate({
       projectPath,
       metadata,
       plan,
-      userIntent
+      userIntent,
+      agentsContext
     });
     
     // Step 4: Collect diagnostics and changes
@@ -211,10 +241,11 @@ export async function analyze({ projectPath, userIntent, generateProposals: doGe
     if (doGenerateProposals) {
       console.error('[MCP] Generating proposals...');
       
-      // Try LLM first if configured
+      // Try LLM first if configured — pass agent rules for context-aware generation
       if (isConfigured()) {
         console.error('[MCP] Using LLM for intelligent proposals...');
-        const llmProposals = await generateLLMProposals(projectPath, userIntent, metadata);
+        const agentRules = agentsContext?.context || '';
+        const llmProposals = await generateLLMProposals(projectPath, userIntent, metadata, agentRules);
         if (llmProposals && llmProposals.length > 0) {
           proposals = llmProposals;
         }
@@ -358,7 +389,7 @@ export async function previewProposal({ projectPath, proposalId }) {
 /**
  * Apply a proposal
  */
-export async function applyProposal({ projectPath, projectPath, proposalId, backup = true }) {
+export async function applyProposal({ projectPath, proposalId, backup = true }) {
   const startTime = Date.now();
   
   // Emit apply attempt

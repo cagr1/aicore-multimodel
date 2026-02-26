@@ -1,6 +1,7 @@
 // Orchestrator - Coordinates agent execution
 import { getAgent } from '../agents/index.js';
 import { computeScore } from '../router/scoring.js';
+import { updateProjectTask } from '../agents-bridge.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -129,9 +130,18 @@ export function applyFallbackRules(options) {
  * @returns {OrchestratorOutput}
  */
 export async function orchestrate(input) {
-  const { projectPath, metadata, plan, userIntent } = input;
+  const { projectPath, metadata, plan, userIntent, agentsContext } = input;
   
   const results = [];
+  
+  // Extract agent rules context from bridge (if available)
+  const agentRules = agentsContext?.context || '';
+  const matchedProjectId = agentsContext?.projectId || null;
+  
+  if (agentRules) {
+    console.error(`[Orchestrator] Agents knowledge base active for project: ${agentsContext.projectName || matchedProjectId}`);
+    console.error(`[Orchestrator] Loaded rules from: ${(agentsContext.mdFiles || []).join(', ')}`);
+  }
   
   // Execute each agent in order
   for (const agentPlan of plan) {
@@ -170,14 +180,15 @@ export async function orchestrate(input) {
       continue;
     }
     
-    // Build context for agent
+    // Build context for agent — inject agents/ rules as additional context
     const context = {
       projectPath,
       metadata: {
         ...metadata,
         ...config
       },
-      userIntent
+      userIntent,
+      agentRules  // Injected from agents-bridge knowledge base
     };
     
     // Execute agent
@@ -185,6 +196,21 @@ export async function orchestrate(input) {
       console.error(`[Orchestrator] Running agent: ${agentId}`);
       const result = await agent.run(context);
       results.push(result);
+      
+      // After successful execution, update tasks.json in agents/ project
+      if (result.success && matchedProjectId) {
+        try {
+          updateProjectTask(matchedProjectId, {
+            title: `${agentId}: ${userIntent}`.slice(0, 100),
+            description: result.summary || userIntent,
+            agentUsed: agentId,
+            status: 'done',
+            notes: `Auto-executed by ai-core. Changes: ${(result.changes || []).length} files`
+          });
+        } catch (taskErr) {
+          console.error(`[Orchestrator] Task update failed (non-fatal): ${taskErr.message}`);
+        }
+      }
     } catch (e) {
       results.push({
         success: false,
@@ -203,11 +229,13 @@ export async function orchestrate(input) {
   // Generate summary
   const successful = results.filter(r => r.success).length;
   const total = results.length;
-  const summary = `Orchestration complete. ${successful}/${total} agents succeeded.`;
+  const bridgeInfo = matchedProjectId ? ` [agents-bridge: ${matchedProjectId}]` : '';
+  const summary = `Orchestration complete. ${successful}/${total} agents succeeded.${bridgeInfo}`;
   
   return {
     results,
-    summary
+    summary,
+    agentsContext: agentsContext || null
   };
 }
 

@@ -1,0 +1,4 @@
+id,prompt,expected_agent,project_type,agents,score,route,llm_called,apply_possible,time_ms,tokens_used_llm,error
+1,"agregar botón de login con Google",frontend,saas,"seo,frontend",1.00,high,false,true,0,0,
+2,"crear endpoint CRUD para usuarios",backend,api,"backend",1.00,high,false,true,0,0,
+3,"optimizar meta tags para SEO",seo,landing,"seo",1.00,high,false,true,0,0,
