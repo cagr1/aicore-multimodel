@@ -26,5 +26,8 @@
       "src/agents/test.js"
     ],
     "transform": {}
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1"
   }
 }

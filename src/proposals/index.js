@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileEngine } from '../file-engine/index.js';
 import { scanProposals } from '../file-engine/secret-scanner.js';
+import { chat, isConfigured, getConfig } from '../llm/index.js';
 
 /**
  * Intent pattern matchers → Proposal generators
@@ -583,15 +584,20 @@ export default {
 // New Project Proposal Generators
 // ============================================
 
-function generateLandingPageProposal(projectPath, metadata) {
-  return {
-    id: 'landing-page-' + Date.now(),
-    agent: 'frontend',
-    description: 'Crear landing page completa con catálogo, filtros y CTA WhatsApp',
-    change: {
-      type: 'create',
-      file: 'SPEC.md',
-      content: `# SPEC.md - Landing Page + Catálogo
+async function generateLandingPageProposal(projectPath, metadata) {
+  const proposalId = 'landing-page-' + Date.now();
+  
+  // Check if LLM is configured
+  if (!isConfigured()) {
+    console.log('[Proposals] LLM not configured, returning template only');
+    return {
+      id: proposalId,
+      agent: 'frontend',
+      description: 'Crear landing page completa con catálogo, filtros y CTA WhatsApp',
+      change: {
+        type: 'create',
+        file: 'SPEC.md',
+        content: `# SPEC.md - Landing Page + Catálogo
 
 ## Proyecto: Landing Page para Empresa de Empaques
 
@@ -611,18 +617,129 @@ function generateLandingPageProposal(projectPath, metadata) {
 3. CTA WhatsApp sticky en mobile
 4. Design System: Negro + Dorado (#D4A843)
 5. Tipografía: Geist
+`
+      },
+      originalContent: '',
+      risks: ['LLM not configured - template only']
+    };
+  }
+  
+  // Generate actual code via LLM
+  console.log('[Proposals] Generating landing page code via LLM...');
+  
+  const systemPrompt = `You are a Next.js expert. Generate a complete landing page with:
+- Next.js 14 + TailwindCSS + TypeScript
+- Hero section with value proposition
+- Product catalog with filters
+- WhatsApp CTA integration
+- Responsive design
+- Dark theme with gold accents (#D4A843)
 
-### Fase 1
-1. Setup Next.js
-2. Data types + products.ts
-3. Layout + Design tokens
-4. Hero section
-5. ProductCard + Grid
-6. Filtros
+Respond with a JSON object containing file paths and content:
+{
+  "files": [
+    {"path": "app/page.tsx", "content": "..."},
+    {"path": "app/layout.tsx", "content": "..."}
+  ]
+}`;
+
+  const userPrompt = `Create a landing page for a bakery packaging company (PrintX EC) in Ecuador.
+Products: cardboard boxes, MDF bases, 3D toppers, baby boxes.
+WhatsApp: 0985482535
+Instagram: @printx_ec
+
+Requirements:
+1. Hero section with black/gold branding
+2. Product catalog with 4 categories (Cajas, Bases, Toppers, Guaguas)
+3. Filters by category and use case
+4. WhatsApp CTA button
+5. Search by name/dimensions
+6. Responsive, mobile-first
+
+Generate the main page.tsx file with a complete Hero section.`;
+
+  try {
+    // Get config to use correct model
+    const config = getConfig();
+    const model = config?.light?.defaultModel || 'moonshotai/kimi-k2.5';
+    
+    const response = await chat({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      options: {
+        model: model,
+        temperature: 0.7,
+        maxTokens: 4096
+      }
+    });
+    
+    if (response.success) {
+      // Write the generated code to file
+      const pageContent = response.content;
+      
+      // Ensure project directory exists
+      if (!fs.existsSync(projectPath)) {
+        fs.mkdirSync(projectPath, { recursive: true });
+      }
+      
+      // Create app directory if needed
+      const appDir = path.join(projectPath, 'app');
+      if (!fs.existsSync(appDir)) {
+        fs.mkdirSync(appDir, { recursive: true });
+      }
+      
+      // Write the page file
+      const pagePath = path.join(appDir, 'page.tsx');
+      fs.writeFileSync(pagePath, pageContent, 'utf-8');
+      console.log('[Proposals] Created:', pagePath);
+      
+      return {
+        id: proposalId,
+        agent: 'frontend',
+        description: 'Generated landing page with Hero section via LLM',
+        change: {
+          type: 'create',
+          file: 'app/page.tsx',
+          content: pageContent
+        },
+        originalContent: '',
+        risks: [],
+        generated: true
+      };
+    } else {
+      console.error('[Proposals] LLM generation failed:', response.error);
+    }
+  } catch (e) {
+    console.error('[Proposals] Error calling LLM:', e.message);
+  }
+  
+  // Fallback to template
+  return {
+    id: proposalId,
+    agent: 'frontend',
+    description: 'Crear landing page completa con catálogo, filtros y CTA WhatsApp (template)',
+    change: {
+      type: 'create',
+      file: 'SPEC.md',
+      content: `# SPEC.md - Landing Page + Catálogo
+
+## Proyecto: Landing Page para Empresa de Empaques
+
+### Stack
+- Next.js 14 + TailwindCSS + Framer Motion
+- Sin backend - datos estáticos en TypeScript
+
+### Requerimientos
+1. Filtros por categoría
+2. Buscador
+3. CTA WhatsApp sticky
+4. Design System: Negro + Dorado (#D4A843)
 `
     },
     originalContent: '',
-    risks: ['Requiere contenido real del cliente']
+    risks: ['LLM call failed - using template']
   };
 }
 

@@ -10,7 +10,7 @@ export async function chat(request) {
   const { messages, options = {} } = request;
   
   const apiKey = options.apiKey || '';
-  const baseUrl = options.baseUrl || 'https://api.kilo.ai/v1';
+  const baseUrl = options.baseUrl || 'https://api.kilo.ai/api/gateway';
   const model = options.model || options.defaultModel || 'MiniMax-M2.5';
   
   if (!apiKey) {

@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 // ai-core CLI Entry Point
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { runCLI } from './src/mcp-server/index.js';
 import { startServer } from './src/mcp-server/mcp-server.js';
 import { startInteractive, quickAnalyze } from './src/cli/index.js';
